@@ -1,0 +1,19 @@
+{
+  "_doc": "Overrides manuales de estado/kind por institución. Tiene prioridad absoluta sobre la clasificación automática de source_status.classify_source. Cada entrada: {id, status, kind, reason?, notes?}. status ∈ active|experimental|manual_review|js_required|blocked|broken|no_data|disabled. kind ∈ empleos_publicos|wordpress|generic|custom_trabajando|custom_hiringroom|custom_buk|skip.",
+  "overrides": [
+    {
+      "id": 161,
+      "status": "active",
+      "kind": "generic",
+      "reason": "Carabineros — portal de postulaciones verificado, publica cargos civiles",
+      "notes": "https://postulaciones.carabineros.cl/"
+    },
+    {
+      "id": 162,
+      "status": "active",
+      "kind": "generic",
+      "reason": "PDI — portal de postulaciones verificado, publica cargos a contrata",
+      "notes": "https://postulaciones.investigaciones.cl/"
+    }
+  ]
+}
