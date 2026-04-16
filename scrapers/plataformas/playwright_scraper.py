@@ -26,6 +26,8 @@ if __package__ in {None, ""}:
 # Agregar aquí nuevas instituciones que requieran JS.
 PLAYWRIGHT_SCRAPERS: dict[int, str] = {
     145: "scrapers.banco_central",
+    275: "scrapers.codelco",
+    280: "scrapers.tvn",
 }
 
 
