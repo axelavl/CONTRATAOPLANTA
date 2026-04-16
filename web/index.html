@@ -1694,7 +1694,7 @@ const estado = {
   q: '',
   region: '',
   sector: '',
-  tipos: [],          // ['planta','contrata','honorarios']
+  tipos: ['planta','contrata','honorarios'],
   cierra_pronto: false,
   nuevas: false,
   orden:        _prefs.orden      || 'recientes',
@@ -2222,9 +2222,9 @@ async function cargarOfertas() {
   if (estado.institucion_id) params.set('institucion', estado.institucion_id);
   if (estado.renta_min)      params.set('renta_min', estado.renta_min);
   if (estado.ciudad)         params.set('ciudad', estado.ciudad);
-    // Tipos activos: enviar siempre que haya alguno seleccionado.
-  // Si están los 3 activos, la API recibirá "planta,contrata,honorarios".
-  if (estado.tipos.length > 0) {
+    // Tipos activos: enviar solo cuando es un subconjunto (1 o 2 tipos).
+  // Si están los 3 activos o ninguno, no filtrar para incluir todos los tipos.
+  if (estado.tipos.length > 0 && estado.tipos.length < 3) {
     params.set('tipo', estado.tipos.join(','));
   }
 
@@ -2654,6 +2654,9 @@ function toggleFiltro(btn, filtro) {
     estado.cierra_pronto = btn.classList.contains('activo');
   } else if (filtro === 'nuevos') {
     estado.nuevas = btn.classList.contains('activo');
+  } else if (filtro === 'sin-experiencia') {
+    // Filtro de experiencia (no es un tipo de contrato)
+    estado.sin_experiencia = btn.classList.contains('activo');
   } else {
     // Filtro de tipo de contrato
     if (btn.classList.contains('activo')) {
@@ -2896,6 +2899,11 @@ function restaurarFiltrosDesdeURL() {
     }
     if (params.has('tipos')) {
       estado.tipos = (params.get('tipos') || '').split(',').filter(Boolean);
+      // Sincronizar botones de tipo con el estado restaurado
+      document.querySelectorAll('.filtro-tag[onclick*="planta"], .filtro-tag[onclick*="contrata"], .filtro-tag[onclick*="honorarios"]').forEach(btn => {
+        const match = btn.getAttribute('onclick').match(/toggleFiltro\(this,'(\w+)'\)/);
+        if (match) btn.classList.toggle('activo', estado.tipos.includes(match[1]));
+      });
     }
     if (params.has('pagina')) {
       const p = parseInt(params.get('pagina'), 10);
