@@ -2222,9 +2222,11 @@ async function cargarOfertas() {
   if (estado.institucion_id) params.set('institucion', estado.institucion_id);
   if (estado.renta_min)      params.set('renta_min', estado.renta_min);
   if (estado.ciudad)         params.set('ciudad', estado.ciudad);
-  // Tipos activos: si hay exactamente uno activo, pasarlo; si todos activos o ninguno, no filtrar
-  if (estado.tipos.length === 1) params.set('tipo', estado.tipos[0]);
-  else if (estado.tipos.length === 2) params.set('tipo', estado.tipos.join(','));
+    // Tipos activos: enviar siempre que haya alguno seleccionado.
+  // Si están los 3 activos, la API recibirá "planta,contrata,honorarios".
+  if (estado.tipos.length > 0) {
+    params.set('tipo', estado.tipos.join(','));
+  }
 
   try {
     const resp = await fetchApi(`/api/ofertas?${params}`);
