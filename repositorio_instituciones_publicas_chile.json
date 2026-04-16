@@ -785,7 +785,7 @@
       "dependencia": "Min. Hacienda",
       "region": "Nacional",
       "sitio_web": "https://www.sii.cl",
-      "url_empleo": "https://www.sii.cl/sobre_el_sii/trabaje_con_nosotros.html",
+      "url_empleo": "https://www.sii.cl/sobre_el_sii/en_postulacion.html",
       "plataforma_empleo": "Sitio propio + empleospublicos.cl",
       "publica_en_empleospublicos": "Sí",
       "dificultad_scraping": "Media",

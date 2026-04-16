@@ -16,6 +16,23 @@
       "notes": "https://postulaciones.investigaciones.cl/"
     },
 
+    {"_comment": "=== Ejecutivo Central ==="},
+
+    {
+      "id": 43,
+      "status": "active",
+      "kind": "generic",
+      "reason": "SII — portal propio en_postulacion.html, también publica en EP",
+      "notes": "https://www.sii.cl/sobre_el_sii/en_postulacion.html"
+    },
+    {
+      "id": 132,
+      "status": "active",
+      "kind": "generic",
+      "reason": "Fundación Integra — portal propio trabajaconnosotros.integra.cl. No publica en EP",
+      "notes": "https://trabajaconnosotros.integra.cl/"
+    },
+
     {"_comment": "=== Autónomos / Reguladores ==="},
 
     {
