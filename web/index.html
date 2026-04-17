@@ -1061,6 +1061,17 @@ footer {
   max-height: 90vh; overflow-y: auto;
   box-shadow: 0 24px 80px rgba(10,46,110,0.3);
   animation: slideUp .25s ease;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.modal.dragging { transition: none; }
+@media (max-width: 600px) {
+  /* Indicador visual de "agarrar para deslizar" en móvil */
+  .modal-header::before {
+    content: ''; position: absolute; top: 6px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 999px;
+    background: rgba(255,255,255,0.3);
+  }
 }
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(24px); }
@@ -1850,6 +1861,18 @@ function guardarPrefs(prefs) {
 }
 
 const _prefs = cargarPrefs();
+
+// Contador de visitas + auto-cambio silencioso a "cierre" en la 3ª visita
+// cuando el usuario aún no ha personalizado el orden.
+_prefs.visitas = (_prefs.visitas || 0) + 1;
+guardarPrefs({ visitas: _prefs.visitas });
+
+function _ordenInicial(prefs) {
+  if (prefs.orden_personalizado && prefs.orden) return prefs.orden;
+  if ((prefs.visitas || 0) >= 3) return 'cierre';
+  return prefs.orden || 'recientes';
+}
+
 const estado = {
   pagina: 1,
   q: '',
@@ -1858,7 +1881,7 @@ const estado = {
   tipos: ['planta','contrata','honorarios'],
   cierra_pronto: false,
   nuevas: false,
-  orden:        _prefs.orden      || 'recientes',
+  orden:        _ordenInicial(_prefs),
   por_pagina:   _prefs.por_pagina || 20,
   vista:        _prefs.vista      || 'cards',
   institucion_id: null,
@@ -2297,7 +2320,7 @@ function renderHeaderCompacta() {
 function setOrdenDesdeHeader(orden) {
   estado.orden  = orden;
   estado.pagina = 1;
-  guardarPrefs({ orden });
+  guardarPrefs({ orden, orden_personalizado: true });
   // Sincronizar el select de orden
   const sel = document.getElementById('ctrl-orden');
   if (sel) sel.value = orden;
@@ -2669,10 +2692,98 @@ function plazoDetalle(dias) {
 }
 
 // ── Modal de detalle ───────────────────────────────────────────────────────
+// ── Estado interno del modal: foco previo + listeners de touch ────────────
+let _modalLastFocus = null;
+let _modalKeydownHandler = null;
+let _modalTouchCleanup = null;
+
+function _focusablesModal() {
+  const modal = document.querySelector('#modal .modal');
+  if (!modal) return [];
+  return Array.from(modal.querySelectorAll(
+    'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"]), input, select, textarea'
+  )).filter(el => el.offsetParent !== null || el === document.activeElement);
+}
+
+function _instalarFocusTrap() {
+  _modalKeydownHandler = (e) => {
+    if (e.key !== 'Tab') return;
+    const focusables = _focusablesModal();
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last  = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  };
+  document.addEventListener('keydown', _modalKeydownHandler);
+}
+function _desinstalarFocusTrap() {
+  if (_modalKeydownHandler) {
+    document.removeEventListener('keydown', _modalKeydownHandler);
+    _modalKeydownHandler = null;
+  }
+}
+
+// Swipe-down para cerrar el modal en móvil (≤ 600 px)
+function _instalarSwipeCierre() {
+  if (!window.matchMedia('(max-width: 600px)').matches) return;
+  const modalCaja = document.querySelector('#modal .modal');
+  const header    = document.querySelector('#modal .modal-header');
+  if (!modalCaja || !header) return;
+  let startY = null, deltaY = 0, dragging = false;
+  const onStart = (e) => {
+    if (e.touches.length !== 1) return;
+    startY = e.touches[0].clientY; deltaY = 0; dragging = true;
+    modalCaja.classList.add('dragging');
+  };
+  const onMove = (e) => {
+    if (!dragging || startY === null) return;
+    deltaY = e.touches[0].clientY - startY;
+    if (deltaY > 0) {
+      modalCaja.style.transform = `translateY(${deltaY}px)`;
+      modalCaja.style.opacity = String(Math.max(0.4, 1 - deltaY / 400));
+    }
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    modalCaja.classList.remove('dragging');
+    if (deltaY > 80) {
+      cerrarModal(null, true);
+    } else {
+      modalCaja.style.transform = '';
+      modalCaja.style.opacity   = '';
+    }
+    startY = null; deltaY = 0;
+  };
+  header.addEventListener('touchstart', onStart, { passive: true });
+  header.addEventListener('touchmove',  onMove,  { passive: true });
+  header.addEventListener('touchend',   onEnd);
+  header.addEventListener('touchcancel', onEnd);
+  _modalTouchCleanup = () => {
+    header.removeEventListener('touchstart', onStart);
+    header.removeEventListener('touchmove',  onMove);
+    header.removeEventListener('touchend',   onEnd);
+    header.removeEventListener('touchcancel', onEnd);
+    modalCaja.style.transform = '';
+    modalCaja.style.opacity   = '';
+  };
+}
+
 async function abrirModal(ofertaId) {
   const overlay = document.getElementById('modal');
+  _modalLastFocus = document.activeElement;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  _instalarFocusTrap();
+  _instalarSwipeCierre();
+  // Foco inicial en el botón principal cuando esté disponible
+  setTimeout(() => {
+    document.getElementById('modal-btn-postular')?.focus();
+  }, 50);
 
   // Reset de contenido mientras carga
   document.getElementById('modal-kicker').textContent = 'Cargando…';
@@ -2803,6 +2914,12 @@ function cerrarModal(e, force) {
   if (force || e.target === document.getElementById('modal')) {
     document.getElementById('modal').classList.remove('open');
     document.body.style.overflow = '';
+    _desinstalarFocusTrap();
+    if (_modalTouchCleanup) { _modalTouchCleanup(); _modalTouchCleanup = null; }
+    if (_modalLastFocus && typeof _modalLastFocus.focus === 'function') {
+      try { _modalLastFocus.focus(); } catch { /* nodo desmontado */ }
+    }
+    _modalLastFocus = null;
   }
 }
 
@@ -2988,7 +3105,7 @@ function toggleFiltro(btn, filtro) {
 function setOrdenSelect(sel) {
   estado.orden  = sel.value;
   estado.pagina = 1;
-  guardarPrefs({ orden: estado.orden });
+  guardarPrefs({ orden: estado.orden, orden_personalizado: true });
   cargarOfertas();
 }
 
