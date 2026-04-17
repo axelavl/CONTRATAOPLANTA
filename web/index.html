@@ -858,14 +858,21 @@ function _limpiarPrefijosCargo(txt) {
 }
 
 function normalizarTituloOferta(cargo) {
-  const original = String(cargo || '').trim().replace(/\s+/g, ' ');
-  if (!original) return '';
-
-  const sinPrefijos = _limpiarPrefijosCargo(original);
+const sinPrefijos = _limpiarPrefijosCargo(original);
   if (!sinPrefijos) return '';
+
+  const letras = sinPrefijos.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '');
+  const mayus = (letras.match(/[A-ZÁÉÍÓÚÜÑ]/g) || []).length;
+  const minus = (letras.match(/[a-záéíóúüñ]/g) || []).length;
+  const pareceGritado = mayus > 0 && (minus === 0 || mayus / Math.max(1, minus) > 3);
+
+  if (!pareceGritado) {
+    return _capitalizarPrimera(sinPrefijos.replace(/\s{2,}/g, ' ').trim());
+  }
 
   const tokens = sinPrefijos.split(/(\s+|[-/(),.:;])/g).filter(Boolean);
   let idxPalabra = 0;
+
   const normalizado = tokens.map((t) => {
     if (/^\s+$/.test(t) || /^[-/(),.:;]$/.test(t)) return t;
     const token = _normalizarTokenCargo(t, idxPalabra);
