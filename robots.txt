@@ -9,4 +9,4 @@ Disallow: /terminos.html
 Disallow: /privacidad.html
 Disallow: /descargo.html
 
-Sitemap: https://contrataoplanta.cl/sitemap.xml
+Sitemap: https://estadoemplea.pages.dev/sitemap.xml

@@ -1,46 +1,49 @@
-# contrata o planta .cl — API Setup (estado real del repo)
+# Estado Emplea — API Setup
 
-## Entrada ASGI real
+## Despliegues vigentes
+
+- **Frontend**: `https://estadoemplea.pages.dev` (Cloudflare Pages, servido desde este repo).
+- **Backend**: `https://contrataoplanta-production.up.railway.app` (Railway, FastAPI `api.main:app`).
+
+El frontend llama al backend directo — sin cadena de fallbacks, sin proxy same-origin.
+Los dominios de marca históricos (`contrataoplanta.cl`, `estadoemplea.cl`, `empleoestado.cl`) **no resuelven**: no los agregues en listas de CORS, `SITE_URL` ni `fetchApi`.
+
+## Entrada ASGI
 
 - Backend FastAPI: `api/main.py`
 - Aplicación ASGI: `api.main:app`
-- Servicio systemd de producción: `deploy/systemd/contrataoplanta-api.service`
-  - `ExecStart=... uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 2`
+- En Railway basta con apuntar el start command a `uvicorn api.main:app --host 0.0.0.0 --port $PORT`.
+- El servicio systemd de `deploy/systemd/contrataoplanta-api.service` queda como alternativa para deploy en VPS con nginx, no se usa en producción hoy.
 
-## Comando correcto de arranque
-
-```bash
-uvicorn api.main:app --host 127.0.0.1 --port 8000
-```
-
-En desarrollo:
+## Comando correcto de arranque (local)
 
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-## Variables de entorno (sin hardcode en código)
+El frontend estático en `web/` detecta `localhost` y apunta automáticamente a `http://localhost:8000` para la API.
 
-Definirlas en `.env` (o en el entorno del servicio):
+## Variables de entorno
+
+Definirlas en Railway (o en `.env` para desarrollo):
 
 ```bash
-# Base de datos
-DB_HOST=localhost
+# Base de datos (Railway inyecta DATABASE_URL; ver config.py)
+DB_HOST=...
 DB_PORT=5432
 DB_NAME=empleospublicos
-DB_USER=postgres
-DB_PASSWORD=tu_password
+DB_USER=...
+DB_PASSWORD=...
 
-# Sitio/canonicals/links
-SITE_URL=https://contrataoplanta.cl
+# Sitio/canonicals/links (URL pública del front)
+SITE_URL=https://estadoemplea.pages.dev
 
-# CORS (opcional, CSV)
-# Si no se define, se usan defaults seguros del código.
-CORS_ALLOW_ORIGINS=https://contrataoplanta.cl,https://www.contrataoplanta.cl
+# CORS (opcional, CSV). Si no se define, se usan defaults seguros del código.
+CORS_ALLOW_ORIGINS=https://estadoemplea.pages.dev
 
 # Integraciones
 RESEND_API_KEY=re_xxxxxxxxxxxx
-EMAIL_FROM=alertas@contrataoplanta.cl
+EMAIL_FROM=alertas@estadoemplea.pages.dev
 MEILISEARCH_URL=http://localhost:7700
 MEILISEARCH_API_KEY=tu_master_key
 ```
@@ -54,5 +57,6 @@ MEILISEARCH_API_KEY=tu_master_key
 
 ## Nota de arquitectura frontend/backend
 
-El frontend principal está en `web/index.html` y consulta la API por `fetchApi('/api/...')`
-con fallback a `https://api.contrataoplanta.cl` si no existe proxy `/api` en el host estático.
+El frontend principal está en `web/index.html`. La función `fetchApi('/api/...')`
+usa la constante `RAILWAY_BACKEND` como base única. Para apuntar a un backend
+distinto en tests o staging, setear `window.__API_BASE` antes de cargar el bundle.

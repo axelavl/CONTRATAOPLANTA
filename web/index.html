@@ -6,7 +6,7 @@
 <script>document.documentElement.classList.add('js-nav');</script>
 <title>contrataoplanta.cl — La plataforma laboral del sector público chileno</title>
 <meta name="description" content="Encuentra empleos públicos en Chile, filtra por institución y revisa oportunidades del sector público en un solo buscador.">
-<link rel="canonical" href="https://contrataoplanta.cl/">
+<link rel="canonical" href="https://estadoemplea.pages.dev/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -14,26 +14,25 @@
 <meta name="theme-color" content="#0A2E6E">
 <meta property="og:title" content="contrata o planta .cl — Empleo público en Chile">
 <meta property="og:description" content="Buscador laboral del sector público chileno con vacantes, filtros y acceso directo a concursos vigentes.">
-<meta property="og:url" content="https://contrataoplanta.cl/">
-<meta property="og:image" content="https://contrataoplanta.cl/og-default.jpg">
+<meta property="og:url" content="https://estadoemplea.pages.dev/">
+<meta property="og:image" content="https://estadoemplea.pages.dev/og-default.jpg">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="es_CL">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="contrata o planta .cl — Empleo público en Chile">
 <meta name="twitter:description" content="Busca vacantes del sector público chileno con filtros por institución, región y tipo de cargo.">
-<meta name="twitter:image" content="https://contrataoplanta.cl/og-default.jpg">
+<meta name="twitter:image" content="https://estadoemplea.pages.dev/og-default.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
-<!-- Umami Analytics — sin cookies, sin banner GDPR -->
-<script defer data-website-id="UMAMI_WEBSITE_ID" src="https://analytics.contrataoplanta.cl/script.js"></script>
+<!-- Analytics deshabilitado: reactivar cuando haya subdominio propio de Umami. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "contrata o planta .cl",
-  "url": "https://contrataoplanta.cl/",
-  "logo": "https://contrataoplanta.cl/assets/logo-512.png",
+  "name": "Estado Emplea",
+  "url": "https://estadoemplea.pages.dev/",
+  "logo": "https://estadoemplea.pages.dev/icon-512.png",
   "contactPoint": [
     {
       "@type": "ContactPoint",
@@ -48,11 +47,11 @@
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "contrata o planta .cl",
-  "url": "https://contrataoplanta.cl/",
+  "name": "Estado Emplea",
+  "url": "https://estadoemplea.pages.dev/",
   "potentialAction": {
     "@type": "SearchAction",
-    "target": "https://contrataoplanta.cl/?q={search_term_string}",
+    "target": "https://estadoemplea.pages.dev/?q={search_term_string}",
     "query-input": "required name=search_term_string"
   }
 }
@@ -2220,11 +2219,18 @@ footer {
 <!-- ══ JAVASCRIPT ══════════════════════════════════════════════════ -->
 <script src="rich-text.js"></script>
 <script>
-// ── Base URL de la API: prioriza mismo origen y hace fallback automático ──
-// Permite forzar base con window.__API_BASE (útil para previews/static hosting).
+// ── Base URL de la API: una sola URL, sin cadena de fallbacks ─────────────
+// Backend en Railway. Los dominios de marca (contrataoplanta.cl,
+// estadoemplea.cl, etc.) no existen en DNS — intentarlos sólo producía
+// ERR_NAME_NOT_RESOLVED y status 530.
+//
+// Overrides:
+//   - window.__API_BASE: fuerza otra base (útil para staging/tests).
+//   - localhost/file://: apunta al uvicorn local en :8000.
+const RAILWAY_BACKEND = 'https://contrataoplanta-production.up.railway.app';
+
 function _normalizarHostname(hostname) {
   const limpio = String(hostname || '').trim().toLowerCase();
-  // Algunos entornos entregan el loopback IPv6 con corchetes ([::1]).
   if (limpio.startsWith('[') && limpio.endsWith(']')) return limpio.slice(1, -1);
   return limpio;
 }
@@ -2236,7 +2242,6 @@ function _esIPv4Loopback(hostname) {
 }
 
 function _esIPv6Loopback(hostname) {
-  // Formato comprimido y completo de ::1.
   return hostname === '::1' || hostname === '0:0:0:0:0:0:0:1';
 }
 
@@ -2254,121 +2259,50 @@ function _hostnameParaURL(hostname) {
   return hostname.includes(':') ? `[${hostname}]` : hostname;
 }
 
-const _hostnameCrudo = window.location.hostname || '';
-const _hostnameNormalizado = _normalizarHostname(_hostnameCrudo);
+const _hostnameNormalizado = _normalizarHostname(window.location.hostname || '');
 const _esLocalhost = _esEntornoLocal(_hostnameNormalizado);
-const _origenActual = (window.location.origin || '').replace(/\/+$/, '').toLowerCase();
 
-const _apiBases = [];
-const _agregarBase = (base) => {
-  if (typeof base !== 'string') return;
-  const limpio = base.trim().replace(/\/+$/, '');
-  // Evitar duplicar el origen actual como base absoluta: `''` (mismo origen)
-  // ya cubre ese caso y reintentarlo sólo enmascara el error real con un
-  // segundo "Failed to fetch".
-  if (limpio && limpio.toLowerCase() === _origenActual) return;
-  if (!_apiBases.includes(limpio)) _apiBases.push(limpio);
-};
-
-_agregarBase(window.__API_BASE || '');
-
-// Siempre intentar mismo origen primero (/api).
-_agregarBase('');
-
-if (_esLocalhost) {
-  // En desarrollo/file://: probar backend local directo en variantes loopback.
-  const _hostsLocales = ['localhost', '127.0.0.1', '::1'];
-  if (_hostnameNormalizado && !_hostsLocales.includes(_hostnameNormalizado)) {
-    _hostsLocales.unshift(_hostnameNormalizado);
+const API_BASE = (() => {
+  const forzada = (typeof window.__API_BASE === 'string' ? window.__API_BASE : '').trim();
+  if (forzada) return forzada.replace(/\/+$/, '');
+  if (_esLocalhost) {
+    const host = _hostnameParaURL(_hostnameNormalizado || 'localhost');
+    const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${proto}//${host}:8000`;
   }
+  return RAILWAY_BACKEND;
+})();
 
-  const _protocoloPreferido = window.location.protocol === 'https:' ? 'https:' : 'http:';
-  for (const host of _hostsLocales) {
-    const hostUrl = _hostnameParaURL(host);
-    _agregarBase(`${_protocoloPreferido}//${hostUrl}:8000`);
-    if (_protocoloPreferido !== 'http:') _agregarBase(`http://${hostUrl}:8000`);
-  }
-}
-
-// Fallbacks remotos explícitos para entornos estáticos/previews sin proxy /api.
-// Incluimos ambos dominios de marca para evitar cortes al publicar en
-// `estadoemplea.pages.dev` o `contrataoplanta.pages.dev`.
-_agregarBase('https://api.estadoemplea.cl');
-_agregarBase('https://estadoemplea.cl');
-_agregarBase('https://api.contrataoplanta.cl');
-_agregarBase('https://contrataoplanta.cl');
-
-const API_BASES = _apiBases;
-let API_BASE_ACTIVA = API_BASES[0] || '';
+// Alias de compatibilidad: otras partes del código (share a Instagram con
+// OG image) leen `API_BASE_ACTIVA`. Ya no hay "activa vs candidatas", pero
+// mantenemos el símbolo para no romper referentes.
+let API_BASE_ACTIVA = API_BASE;
 const API_TIMEOUT_MS = 12000;
 const MAX_REINTENTOS_AUTOMATICOS = 3;
 let _reintentosConsecutivos = 0;
 
-console.info('[API] Resolución de entorno', {
-  hostnameCrudo: _hostnameCrudo,
-  hostnameNormalizado: _hostnameNormalizado,
-  esLocalhost: _esLocalhost,
-  origin: window.location.origin,
-  apiBaseForzada: window.__API_BASE || null,
-});
-console.info('[API] Bases candidatas', API_BASES);
+console.info('[API] Base activa', { API_BASE, esLocalhost: _esLocalhost });
 
 async function fetchApi(path, options = {}) {
-  let ultimoError = null;
-  const errores = [];
-
-  for (const base of API_BASES) {
-    const url = `${base}${path}`;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-      const opts = { ...options, signal: controller.signal };
-      console.debug('[API] Intentando endpoint', { url, base });
-      const resp = await fetch(url, opts);
-      clearTimeout(timeoutId);
-
-      // Aceptar sólo respuestas que vengan de la API real (Content-Type JSON).
-      // Si nginx u otro servidor devuelve HTML (ej. 404 de archivos estáticos
-      // o 502 de un upstream caído), intentamos la siguiente base en vez de
-      // aceptar la respuesta inválida.
-      const ct = (resp.headers.get('content-type') || '').toLowerCase();
-      if (ct.includes('application/json')) {
-        // Caso especial: la Cloudflare Pages Function proxy (functions/api/
-        // [[path]].js) sintetiza un 502 con { error: 'backend_unreachable' }
-        // cuando no pudo alcanzar al backend. Ese 5xx NO es del backend real,
-        // es del proxy mismo — si nos quedamos con él perdemos la cadena de
-        // fallbacks remotos. Lo tratamos como una base caída y seguimos.
-        const esProxyCaido = resp.status >= 500 && resp.headers.get('x-proxy-error') === 'backend_unreachable';
-        if (!esProxyCaido) {
-          API_BASE_ACTIVA = base;
-          console.info('[API] Endpoint activo', { base: API_BASE_ACTIVA || '(mismo origen)', path, status: resp.status });
-          return resp;
-        }
-        const detalleProxy = `Proxy ${resp.status} backend_unreachable en ${url}`;
-        ultimoError = new Error(detalleProxy);
-        errores.push({ url, base, detalle: detalleProxy });
-        console.warn('[API] Proxy no alcanzó al backend, probando siguiente base', { url, status: resp.status });
-        continue;
-      }
-
-      const detalle = `HTTP ${resp.status} (${ct || 'sin content-type'})`;
-      ultimoError = new Error(`${detalle} en ${url}`);
-      errores.push({ url, base, detalle });
-      console.warn('[API] Respuesta descartada', { url, status: resp.status, contentType: ct });
-    } catch (err) {
-      const isTimeout = err?.name === 'AbortError';
-      ultimoError = isTimeout ? new Error(`Timeout (${API_TIMEOUT_MS}ms)`) : err;
-      const detalle = isTimeout
-        ? `Timeout (${API_TIMEOUT_MS}ms)`
-        : (err && err.message ? err.message : String(err));
-      errores.push({ url, base, detalle });
-      console.warn('[API] Error de conexión', { url, detalle });
-    }
+  const url = `${API_BASE}${path}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  try {
+    const resp = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return resp;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const isTimeout = err?.name === 'AbortError';
+    const detalle = isTimeout
+      ? `Timeout (${API_TIMEOUT_MS}ms)`
+      : (err && err.message ? err.message : String(err));
+    const wrapped = isTimeout ? new Error(`Timeout (${API_TIMEOUT_MS}ms) en ${url}`) : err;
+    // Mantener el shape `detalles` que consume `_resumenErrorConexion`.
+    wrapped.detalles = [{ url, base: API_BASE, detalle }];
+    console.warn('[API] Error de conexión', { url, detalle });
+    throw wrapped;
   }
-
-  const errorFinal = ultimoError || new Error(`No se pudo contactar la API para ${path}`);
-  errorFinal.detalles = errores;
-  throw errorFinal;
 }
 
 // ── Estado global de filtros y paginación ──────────────────────────────────

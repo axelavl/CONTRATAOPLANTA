@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-Aggregator of Chilean public-sector job listings (domains: `contrataoplanta.cl`, previously `empleoestado.cl`). Three loosely coupled pieces share one PostgreSQL database:
+Aggregator of Chilean public-sector job listings. Frontend live at `https://estadoemplea.pages.dev` (Cloudflare Pages); backend live at `https://contrataoplanta-production.up.railway.app` (Railway). Legacy brand domains (`contrataoplanta.cl`, `estadoemplea.cl`, `empleoestado.cl`) no longer resolve — avoid reintroducing them. Three loosely coupled pieces share one PostgreSQL database:
 
 1. **Scrapers** (`scrapers/`) — harvest offers from the central portal `empleospublicos.cl` plus hundreds of individual institutional sites.
 2. **FastAPI backend** (`api/main.py`, ASGI app `api.main:app`) — exposes `/api/...` to the frontend and runs auxiliary services (Meilisearch indexing, email alerts via Resend, OG image generation, BCN law lookups).
-3. **Static HTML frontend** (`web/index.html` and siblings, plus legacy copies at repo root) — consumes the API via `fetchApi('/api/...')` with fallback to `https://api.contrataoplanta.cl`.
+3. **Static HTML frontend** (`web/index.html` and siblings, plus legacy copies at repo root) — consumes the API via `fetchApi('/api/...')`, which points at the Railway URL constant `RAILWAY_BACKEND`. Override for staging/tests via `window.__API_BASE`. No chain of fallback hosts — one base, one fetch.
 
 Spanish is the working language for code comments, log messages, DB identifiers, and docs. Preserve it when editing — do not translate to English.
 
