@@ -605,7 +605,8 @@ def _slugs_relacionados(slug_a: str, slug_b: str) -> bool:
 
     Reglas:
       1) Si ambos tienen código `resolex-NNN`, debe coincidir exactamente.
-      2) Si no hay resolex usable, exigimos compartir año + mes.
+      2) Si no hay resolex usable, exigimos compartir año + mes + al menos
+         un token semántico específico del cargo (no genérico).
     """
     tokens_a = {m.group(0).lower() for m in RE_TOKENS.finditer(slug_a)}
     tokens_b = {m.group(0).lower() for m in RE_TOKENS.finditer(slug_b)}
@@ -625,7 +626,48 @@ def _slugs_relacionados(slug_a: str, slug_b: str) -> bool:
     }
     months_a = tokens_a & meses
     months_b = tokens_b & meses
-    return bool((years_a & years_b) and (months_a & months_b))
+    if not ((years_a & years_b) and (months_a & months_b)):
+        return False
+
+    stop_tokens = {
+        "perfil",
+        "cargo",
+        "cargos",
+        "bases",
+        "concurso",
+        "concursos",
+        "publico",
+        "publicos",
+        "planta",
+        "postulacion",
+        "postulaciones",
+        "resolex",
+        "del",
+        "de",
+        "la",
+        "el",
+    }
+    words_a = set(re.findall(r"[a-záéíóúñ0-9]+", slug_a.lower(), flags=re.I))
+    words_b = set(re.findall(r"[a-záéíóúñ0-9]+", slug_b.lower(), flags=re.I))
+    semantic_a = {
+        t
+        for t in words_a
+        if t not in stop_tokens
+        and t not in meses
+        and not re.fullmatch(r"20\d{2}", t)
+        and not t.startswith("resolex")
+        and len(t) >= 4
+    }
+    semantic_b = {
+        t
+        for t in words_b
+        if t not in stop_tokens
+        and t not in meses
+        and not re.fullmatch(r"20\d{2}", t)
+        and not t.startswith("resolex")
+        and len(t) >= 4
+    }
+    return bool(semantic_a & semantic_b)
 
 
 def _stable_offer_url(url: str | None) -> str:
