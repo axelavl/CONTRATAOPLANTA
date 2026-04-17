@@ -2191,8 +2191,8 @@ const _esLocalhost = (
   window.location.hostname === ''
 );
 const API_BASES = _esLocalhost
-  ? ['http://localhost:8000', 'https://contrataoplanta-production.up.railway.app']
-  : ['', 'https://contrataoplanta-production.up.railway.app'];
+  ? ['http://localhost:8000']
+  : [''];
 let API_BASE_ACTIVA = API_BASES[0];
 
 async function fetchApi(path, options = {}) {
@@ -3432,7 +3432,7 @@ function cerrarModal(e, force) {
   }
 }
 
-// Construye el deep-link a esta oferta dentro de contrataoplanta.cl.
+// Construye el deep-link a esta oferta dentro del dominio actual.
 // Ventaja vs compartir oferta.url_oferta directo: el receptor ve nuestra
 // previsualización (OG image dinámica) y aterriza en el modal preseleccionado,
 // con un solo click para postular.
@@ -3447,7 +3447,7 @@ function urlDeepLinkOferta(oferta) {
 
   // Conservamos otros filtros existentes y limpiamos solo el hash visual.
   url.hash = '';
-  url.searchParams.set('oferta', String(oferta.id));
+  url.pathname = `/oferta/${oferta.id}`;
   return url.toString();
 }
 
@@ -3492,7 +3492,7 @@ function configurarCompartir(oferta) {
     const apiBase = (typeof API_BASE_ACTIVA === 'string') ? API_BASE_ACTIVA : '';
     const ogUrl = `${apiBase}/api/og/${oferta.id}.png`;
     if (navigator.share) {
-      navigator.share({ title: titulo, text: texto + '\nVer ofertas similares en contrataoplanta.cl', url })
+      navigator.share({ title: titulo, text: texto + `\nVer ofertas similares en ${window.location.hostname}`, url })
         .catch(() => abrirIG(oferta, url, ogUrl));
     } else {
       abrirIG(oferta, url, ogUrl);
@@ -4335,7 +4335,11 @@ restaurarFiltrosDesdeURL();
 // ── 8.b Deep-link a oferta concreta: ?oferta=ID abre el modal al cargar ──
 (function abrirOfertaDesdeURL() {
   try {
-    const id = parseInt(new URLSearchParams(window.location.search).get('oferta') || '', 10);
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = parseInt(params.get('oferta') || '', 10);
+    const fromPathMatch = window.location.pathname.match(/^\/oferta\/(\d+)(?:\/)?$/);
+    const fromPath = fromPathMatch ? parseInt(fromPathMatch[1], 10) : NaN;
+    const id = !isNaN(fromQuery) && fromQuery > 0 ? fromQuery : fromPath;
     if (!isNaN(id) && id > 0) {
       // Esperar al primer pintado para no pelear con la animación de carga.
       window.addEventListener('load', () => setTimeout(() => abrirModal(id), 200));
