@@ -1,0 +1,28 @@
+* Uses proxy env variable NO_PROXY == 'browser'
+* Uses proxy env variable HTTPS_PROXY == 'http://proxy:8080'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host proxy:8080 was resolved.
+* IPv6: (none)
+* IPv4: 172.30.0.51
+*   Trying 172.30.0.51:8080...
+* Connected to proxy (172.30.0.51) port 8080
+* CONNECT tunnel: HTTP/1.1 negotiated
+* allocate connect buffer
+* Establish HTTP proxy tunnel to postulaciones.investigaciones.cl:443
+> CONNECT postulaciones.investigaciones.cl:443 HTTP/1.1
+> Host: postulaciones.investigaciones.cl:443
+> User-Agent: curl/8.5.0
+> Proxy-Connection: Keep-Alive
+> 
+< HTTP/1.1 403 Forbidden
+< content-length: 9
+< content-type: text/plain
+< date: Fri, 17 Apr 2026 13:45:52 GMT
+< server: envoy
+< connection: close
+< 
+* CONNECT tunnel failed, response 403
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Closing connection
+curl: (56) CONNECT tunnel failed, response 403
