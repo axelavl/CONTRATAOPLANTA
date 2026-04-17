@@ -3395,7 +3395,7 @@ function urlDeepLinkOferta(oferta) {
   const url = new URL(window.location.href);
   url.search = '';
   url.hash = '';
-  url.pathname = '/';
+  url.pathname = '/web/index.html';
   url.searchParams.set('oferta', String(oferta.id));
   return url.toString();
 }
