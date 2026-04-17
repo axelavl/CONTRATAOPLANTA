@@ -433,7 +433,16 @@ nav {
 .meta-link:hover{text-decoration:underline}
 
 /* ═══ BARRA DE RESULTADOS Y CONTROLES ════════════════════════════════ */
-.estado-listado-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.estado-tab{border:1px solid var(--borde);background:var(--blanco);color:var(--texto2);padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer}.estado-tab.activo{background:var(--azul);border-color:var(--azul);color:#fff}.estado-listado-copy{font-size:12px;color:var(--texto2);margin-bottom:14px}
+.estado-listado-tabs{display:inline-grid;grid-template-columns:1fr 1fr;position:relative;padding:4px;background:var(--bg2);border:1px solid var(--borde);border-radius:999px;margin-bottom:10px;max-width:420px;gap:0}
+.estado-listado-tabs::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);background:var(--azul);border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:0}
+.estado-listado-tabs[data-estado="cerradas"]::before{transform:translateX(100%)}
+.estado-tab{position:relative;z-index:1;border:none;background:transparent;color:var(--texto2);padding:8px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:color .2s ease;font-family:inherit}
+.estado-tab:hover{color:var(--texto)}
+.estado-tab.activo{color:#fff}
+.estado-tab.activo:hover{color:#fff}
+.estado-tab:focus-visible{outline:2px solid var(--cielo);outline-offset:2px}
+.estado-listado-copy{font-size:12px;color:var(--texto2);margin-bottom:14px}
+@media (max-width: 480px){.estado-listado-tabs{display:grid;width:100%;max-width:none}.estado-tab{font-size:11.5px;padding:8px 10px}}
 .resultados-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
@@ -698,9 +707,9 @@ nav {
 }
 /* Widths by position — must mirror .row-* classes exactly */
 .oferta-row-header > :nth-child(1) { flex: 1 1 0; min-width: 0; overflow: hidden; padding-right: 8px; }
-.oferta-row-header > :nth-child(2) { flex: 0 0 80px;  width: 80px; }
-.oferta-row-header > :nth-child(3) { flex: 0 0 110px; width: 110px; }
-.oferta-row-header > :nth-child(4) { flex: 0 0 100px; width: 100px; text-align: right; padding-right: 4px; }
+.oferta-row-header > :nth-child(2) { flex: 0 0 90px;  width: 90px; }
+.oferta-row-header > :nth-child(3) { flex: 0 0 130px; width: 130px; }
+.oferta-row-header > :nth-child(4) { flex: 0 0 150px; width: 150px; text-align: right; padding-right: 6px; }
 .oferta-row-header > :nth-child(5) { flex: 0 0 36px;  width: 36px; }
 
 .col-sort {
@@ -739,10 +748,13 @@ nav {
 .oferta-row.favorita { box-shadow: inset 3px 0 0 var(--acento); }
 
 /* Row cells — widths MUST match header :nth-child widths above */
-.row-main  { flex: 1 1 0; min-width: 0; overflow: hidden; padding: 8px 8px 8px 0; }
-.row-meta  { flex: 0 0 80px;  width: 80px;  overflow: hidden; display: flex; align-items: center; }
-.row-plazo { flex: 0 0 110px; width: 110px; overflow: hidden; display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--texto3); white-space: nowrap; }
-.row-renta { flex: 0 0 100px; width: 100px; overflow: hidden; font-size: 12px; font-weight: 700; color: var(--texto); white-space: nowrap; text-align: right; padding-right: 4px; }
+.row-main  { flex: 1 1 0; min-width: 0; overflow: hidden; padding: 10px 10px 10px 0; }
+.row-meta  { flex: 0 0 90px;  width: 90px;  overflow: hidden; display: flex; align-items: center; }
+.row-plazo { flex: 0 0 130px; width: 130px; overflow: hidden; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto3); white-space: nowrap; }
+.row-renta { flex: 0 0 150px; width: 150px; overflow: hidden; font-size: 12.5px; font-weight: 700; color: var(--texto); text-align: right; padding-right: 6px; line-height: 1.25;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-end; }
+.row-renta .renta-rango { display: block; font-size: 11px; font-weight: 500; color: var(--texto3); white-space: nowrap; }
+.row-renta .renta-principal { display: block; white-space: nowrap; }
 .btn-fav-row {
   flex: 0 0 36px; width: 28px; height: 28px;
   border-radius: 50%; background: transparent; border: 1.5px solid transparent;
@@ -1584,18 +1596,19 @@ footer {
   .modal-info-grid { grid-template-columns: 1fr; }
   .ofertas-lista.cuadricula { grid-template-columns: 1fr; }
   /* Compacta en pantallas medianas: columnas más angostas, oculta fav */
-  .row-meta  { flex: 0 0 70px;  width: 70px; }
+  .row-meta  { flex: 0 0 76px;  width: 76px; }
   .row-plazo {
-    flex: 0 0 96px;  width: 96px; font-size: 11px;
+    flex: 0 0 110px;  width: 110px; font-size: 11px;
     white-space: normal; line-height: 1.25;
   }
   .row-renta {
-    flex: 0 0 96px;  width: 96px; font-size: 11px;
-    white-space: normal; line-height: 1.25; word-break: break-word;
+    flex: 0 0 120px;  width: 120px; font-size: 11.5px;
+    line-height: 1.25;
   }
-  .oferta-row-header > :nth-child(2) { flex: 0 0 70px; width: 70px; }
-  .oferta-row-header > :nth-child(3) { flex: 0 0 96px; width: 96px; }
-  .oferta-row-header > :nth-child(4) { flex: 0 0 96px; width: 96px; }
+  .row-renta .renta-rango { font-size: 10.5px; }
+  .oferta-row-header > :nth-child(2) { flex: 0 0 76px; width: 76px; }
+  .oferta-row-header > :nth-child(3) { flex: 0 0 110px; width: 110px; }
+  .oferta-row-header > :nth-child(4) { flex: 0 0 120px; width: 120px; }
   .btn-fav-row { display: none; }
   .oferta-row-header > :nth-child(5) { display: none; }
 }
@@ -1657,10 +1670,11 @@ footer {
   /* Compacta en móvil: oculta tipo, compacta plazo/renta */
   .row-meta { display: none; }
   .oferta-row-header > :nth-child(2) { display: none; }
-  .row-plazo { flex: 0 0 86px; width: 86px; font-size: 10.5px; gap: 4px; white-space: normal; line-height: 1.25; }
-  .row-renta { flex: 0 0 86px; width: 86px; font-size: 10.5px; padding-right: 2px; white-space: normal; line-height: 1.25; word-break: break-word; }
-  .oferta-row-header > :nth-child(3) { flex: 0 0 86px; width: 86px; }
-  .oferta-row-header > :nth-child(4) { flex: 0 0 86px; width: 86px; padding-right: 2px; }
+  .row-plazo { flex: 0 0 92px; width: 92px; font-size: 10.5px; gap: 4px; white-space: normal; line-height: 1.25; }
+  .row-renta { flex: 0 0 104px; width: 104px; font-size: 11px; padding-right: 4px; line-height: 1.2; }
+  .row-renta .renta-rango { font-size: 10px; }
+  .oferta-row-header > :nth-child(3) { flex: 0 0 92px; width: 92px; }
+  .oferta-row-header > :nth-child(4) { flex: 0 0 104px; width: 104px; padding-right: 4px; }
   .col-sort, .col-sort-label { font-size: 10px; letter-spacing: .3px; }
   .oferta-row { padding: 0 12px; min-height: 60px; }
   .oferta-row-header { padding: 0 12px; }
@@ -1671,10 +1685,11 @@ footer {
 }
 @media (max-width: 420px) {
   /* Compacta en móvil muy estrecho: compactar columnas */
-  .row-plazo { flex: 0 0 78px; width: 78px; font-size: 10px; }
-  .row-renta { flex: 0 0 80px; width: 80px; font-size: 10px; }
-  .oferta-row-header > :nth-child(3) { flex: 0 0 78px; width: 78px; }
-  .oferta-row-header > :nth-child(4) { flex: 0 0 80px; width: 80px; }
+  .row-plazo { flex: 0 0 82px; width: 82px; font-size: 10px; }
+  .row-renta { flex: 0 0 94px; width: 94px; font-size: 10.5px; }
+  .row-renta .renta-rango { font-size: 9.5px; }
+  .oferta-row-header > :nth-child(3) { flex: 0 0 82px; width: 82px; }
+  .oferta-row-header > :nth-child(4) { flex: 0 0 94px; width: 94px; }
   .oferta-row { padding: 0 10px; }
   .oferta-row-header { padding: 0 10px; }
   .col-sort, .col-sort-label { font-size: 9.5px; }
@@ -1811,11 +1826,11 @@ footer {
 
   <!-- COLUMNA OFERTAS -->
   <div>
-    <div class="estado-listado-tabs" role="tablist" aria-label="Vista por estado">
+    <div class="estado-listado-tabs" id="estado-listado-tabs" role="tablist" aria-label="Vista por estado" data-estado="vigentes">
       <button class="estado-tab activo" id="tab-vigentes" onclick="setVistaListado('vigentes')" role="tab" aria-selected="true">Vigentes</button>
-      <button class="estado-tab" id="tab-cerradas" onclick="setVistaListado('cerradas')" role="tab" aria-selected="false">Convocatorias anteriores</button>
+      <button class="estado-tab" id="tab-cerradas" onclick="setVistaListado('cerradas')" role="tab" aria-selected="false">Convocatorias pasadas</button>
     </div>
-    <p class="estado-listado-copy" id="estado-listado-copy">Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias anteriores.</p>
+    <p class="estado-listado-copy" id="estado-listado-copy">Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias pasadas.</p>
     <div class="resultados-header">
       <div class="resultados-count">
         <strong id="count-num">—</strong> ofertas encontradas
@@ -2535,6 +2550,21 @@ function formatRenta(min, max, grado) {
   return null;
 }
 
+// Versión HTML para la vista compacta: muestra min/max en dos líneas
+// cuando hay rango, para evitar truncar valores largos en columnas angostas.
+function formatRentaRow(min, max, grado) {
+  if (min) {
+    const minF = '$' + min.toLocaleString('es-CL');
+    if (max && max !== min) {
+      const maxF = '$' + max.toLocaleString('es-CL');
+      return `<span class="renta-principal">${minF}</span><span class="renta-rango">hasta ${maxF}</span>`;
+    }
+    return `<span class="renta-principal">${minF}</span>`;
+  }
+  if (grado) return `<span class="renta-principal" style="font-size:11.5px">Grado ${grado} EUS</span>`;
+  return null;
+}
+
 function formatFecha(iso) {
   if (!iso) return null;
   const d = new Date(iso + 'T00:00:00');
@@ -2614,7 +2644,7 @@ function plazoInfo(oferta) {
   if (dias === null || dias === undefined) return { clase: 'status-active', texto: 'Disponible', color: 'var(--verde)' };
   if (dias === 1) return { clase: 'status-active', texto: 'Cierra mañana', color: 'var(--verde)' };
   if (dias <= 5) return { clase: 'status-closing-today', texto: `Cierra en ${dias} días`, color: 'var(--naran)' };
-  return { clase: 'status-active', texto: `Disponible · ${dias} días`, color: 'var(--verde)' };
+  return { clase: 'status-active', texto: `${dias} días disponibles`, color: 'var(--verde)' };
 }
 
 // ── Logos institucionales (favicon DuckDuckGo con fallback emoji) ─────────
@@ -2778,7 +2808,7 @@ function renderRowCompacta(oferta) {
     ? oferta.tipo_contrato.charAt(0).toUpperCase() + oferta.tipo_contrato.slice(1) : '';
   const regionCorta = (oferta.region || '')
     .replace('Metropolitana de Santiago','RM').replace('Región de ','');
-  const renta = formatRenta(oferta.renta_bruta_min, oferta.renta_bruta_max, oferta.grado_eus);
+  const rentaHtml = formatRentaRow(oferta.renta_bruta_min, oferta.renta_bruta_max, oferta.grado_eus);
   const favs  = JSON.parse(localStorage.getItem('fav_contrataoplanta') || '[]');
   const esFav = favs.some(f => f.id === oferta.id);
   const jobPosting = buildJobPostingJsonLd(oferta);
@@ -2799,7 +2829,7 @@ function renderRowCompacta(oferta) {
       <div class="plazo-dot ${plazo.clase}"></div>
       <span style="color:${plazo.color}">${plazo.texto}</span>
     </div>
-    <div class="row-renta">${renta || '<span style="color:var(--texto3)">—</span>'}</div>
+    <div class="row-renta">${rentaHtml || '<span style="color:var(--texto3)">—</span>'}</div>
     <button class="btn-fav-row${esFav ? ' activo' : ''}"
       data-id="${oferta.id}"
       data-cargo="${escAttr(oferta.cargo)}"
@@ -3071,6 +3101,7 @@ function irPagina(n) {
 function setVistaListado(vista) {
   estado.vista_listado = vista;
   estado.pagina = 1;
+  document.getElementById('estado-listado-tabs')?.setAttribute('data-estado', vista);
   document.getElementById('tab-vigentes')?.classList.toggle('activo', vista === 'vigentes');
   document.getElementById('tab-cerradas')?.classList.toggle('activo', vista === 'cerradas');
   document.getElementById('tab-vigentes')?.setAttribute('aria-selected', vista === 'vigentes' ? 'true' : 'false');
@@ -3078,7 +3109,7 @@ function setVistaListado(vista) {
   const copy = document.getElementById('estado-listado-copy');
   if (copy) {
     copy.textContent = vista === 'vigentes'
-      ? 'Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias anteriores.'
+      ? 'Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias pasadas.'
       : 'Mostrando convocatorias cerradas e históricas para consulta. Cambia a Vigentes para postular.';
   }
   cargarOfertas();
@@ -3905,9 +3936,12 @@ function limpiarRenta() {
 function buscar() {
   if (estado.vista_listado !== 'vigentes') {
     estado.vista_listado = 'vigentes';
+    document.getElementById('estado-listado-tabs')?.setAttribute('data-estado', 'vigentes');
     document.getElementById('tab-vigentes')?.classList.add('activo');
     document.getElementById('tab-cerradas')?.classList.remove('activo');
-    document.getElementById('estado-listado-copy').textContent = 'Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias anteriores.';
+    document.getElementById('tab-vigentes')?.setAttribute('aria-selected', 'true');
+    document.getElementById('tab-cerradas')?.setAttribute('aria-selected', 'false');
+    document.getElementById('estado-listado-copy').textContent = 'Mostrando solo ofertas vigentes. Las ofertas cerradas están disponibles en Convocatorias pasadas.';
   }
   estado.q         = document.getElementById('input-cargo').value.trim();
   estado.region    = document.getElementById('filtro-region').value;
