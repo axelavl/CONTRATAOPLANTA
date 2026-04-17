@@ -130,6 +130,19 @@ LOG_DIR = Path("logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+class IntakeRejected(Exception):
+    """Lanzada cuando el validador transversal de intake descarta la oferta.
+
+    No es un error: indica que la oferta no debe persistirse y que el scraper
+    debe seguir adelante con la siguiente. ``BaseScraper.save_to_db`` la
+    captura silenciosamente para no inflar ``stats['errores']``.
+    """
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__(motivo)
+        self.motivo = motivo
+
+
 def strip_accents(value: str | None) -> str:
     if not value:
         return ""
@@ -230,6 +243,18 @@ def normalize_region(value: str | None) -> str | None:
 
 
 def parse_renta(text: str | None) -> tuple[int | None, int | None, str | None]:
+    """Extrae (renta_min, renta_max, grado_eus) desde texto libre.
+
+    Aplica el techo de cordura del sector público chileno: cualquier monto
+    >= ``RENTA_MAX_SOSPECHOSA`` se descarta (típicamente es presupuesto
+    anual o monto de proyecto, no renta mensual). Cualquier monto bajo
+    ``RENTA_MIN_RAZONABLE`` se ignora (ruido). La intake_validate_offer
+    aplica chequeos adicionales de contexto.
+    """
+    # Importación tardía: scrapers.intake importa scrapers.base.clean_text
+    # de forma indirecta. Evita ciclo en tests cargados a mano.
+    from scrapers.intake import RENTA_MAX_SOSPECHOSA, RENTA_MIN_RAZONABLE
+
     content = clean_text(text)
     if not content:
         return None, None, None
@@ -247,7 +272,7 @@ def parse_renta(text: str | None) -> tuple[int | None, int | None, str | None]:
         if not digits:
             continue
         number = int(digits)
-        if 100_000 <= number <= 99_999_999:
+        if RENTA_MIN_RAZONABLE <= number < RENTA_MAX_SOSPECHOSA:
             amounts.append(number)
 
     if not amounts:
@@ -329,6 +354,7 @@ class BaseScraper(abc.ABC):
             "nuevas": 0,
             "actualizadas": 0,
             "cerradas": 0,
+            "descartadas": 0,
             "errores": 0,
             "duracion_seg": 0.0,
         }
@@ -394,7 +420,7 @@ class BaseScraper(abc.ABC):
             if self.stats["status"] == "OK" and self.stats["errores"] > 0:
                 self.stats["status"] = "PARCIAL"
             self.logger.info(
-                "evento=fin scraper=%s status=%s found=%s parsed=%s nuevas=%s actualizadas=%s cerradas=%s errores=%s duracion=%s",
+                "evento=fin scraper=%s status=%s found=%s parsed=%s nuevas=%s actualizadas=%s cerradas=%s descartadas=%s errores=%s duracion=%s",
                 self.nombre,
                 self.stats["status"],
                 self.stats["found"],
@@ -402,13 +428,14 @@ class BaseScraper(abc.ABC):
                 self.stats["nuevas"],
                 self.stats["actualizadas"],
                 self.stats["cerradas"],
+                self.stats["descartadas"],
                 self.stats["errores"],
                 self.stats["duracion_seg"],
             )
         return dict(self.stats)
 
     def save_to_db(self, ofertas: list[dict[str, Any]]) -> dict[str, int]:
-        stats = {"nuevas": 0, "actualizadas": 0, "cerradas": 0, "errores": 0}
+        stats = {"nuevas": 0, "actualizadas": 0, "cerradas": 0, "errores": 0, "descartadas": 0}
         if not ofertas:
             self.logger.warning("evento=sin_ofertas scraper=%s", self.nombre)
             return stats
@@ -431,6 +458,16 @@ class BaseScraper(abc.ABC):
                             stats["actualizadas"] += 1
                         else:
                             stats["nuevas"] += 1
+                    except IntakeRejected as exc:
+                        # No es un error: el intake transversal decidió descartarla.
+                        cursor.execute("ROLLBACK TO SAVEPOINT oferta_sp")
+                        stats["descartadas"] += 1
+                        self.logger.info(
+                            "evento=oferta_descartada scraper=%s url=%s motivo=%s",
+                            self.nombre,
+                            offer.get("url_oferta"),
+                            exc.motivo,
+                        )
                     except Exception as exc:  # pragma: no cover - defensa runtime
                         cursor.execute("ROLLBACK TO SAVEPOINT oferta_sp")
                         stats["errores"] += 1
@@ -501,6 +538,29 @@ class BaseScraper(abc.ABC):
             raise ValueError("La oferta no tiene cargo valido")
         if not normalized["url_oferta"]:
             raise ValueError("La oferta no tiene url_oferta valida")
+
+        # Capa de intake transversal: descarta basura/vencidos/montos absurdos
+        # y marca needs_review cuando corresponda. Cualquier scraper que use
+        # BaseScraper.save_to_db hereda esta validación.
+        from scrapers.intake import intake_validate_offer
+
+        decision = intake_validate_offer(normalized)
+        if decision.discard:
+            self.logger.info(
+                "evento=intake_descarte scraper=%s url=%s motivo=%s cargo=%s",
+                self.nombre,
+                normalized.get("url_oferta"),
+                decision.motivo_descarte,
+                truncate(normalized.get("cargo"), 80),
+            )
+            raise IntakeRejected(decision.motivo_descarte or "intake_rejected")
+        if decision.needs_review:
+            self.logger.info(
+                "evento=intake_revision scraper=%s url=%s razones=%s",
+                self.nombre,
+                normalized.get("url_oferta"),
+                ",".join(decision.review_reasons),
+            )
         return normalized
 
     def get_connection(self) -> psycopg2.extensions.connection:

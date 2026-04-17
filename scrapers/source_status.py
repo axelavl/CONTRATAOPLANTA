@@ -92,6 +92,10 @@ class SourceDecision:
     reason: str
     covered_by_central: bool = False
     notes: str = ""
+    # Tier de frecuencia (string para evitar dependencia circular con
+    # ``scrapers.frequency_policy``). Si queda en None, run_scrapers.py
+    # lo resuelve via ``frequency_policy.resolve_tier``.
+    frequency_tier: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -101,6 +105,7 @@ class SourceDecision:
             "reason": self.reason,
             "covered_by_central": self.covered_by_central,
             "notes": self.notes,
+            "frequency_tier": self.frequency_tier,
         }
 
 
@@ -148,6 +153,7 @@ def _apply_override(inst_id: int, decision: SourceDecision) -> SourceDecision:
     kind = override.get("kind")
     reason = override.get("reason") or decision.reason
     notes = override.get("notes") or ""
+    tier = override.get("frequency_tier") or override.get("frecuencia")
     try:
         new_status = SourceStatus(status) if status else decision.status
     except ValueError:
@@ -163,6 +169,7 @@ def _apply_override(inst_id: int, decision: SourceDecision) -> SourceDecision:
         reason=f"override: {reason}",
         covered_by_central=decision.covered_by_central,
         notes=notes,
+        frequency_tier=str(tier).strip().lower() if tier else None,
     )
 
 

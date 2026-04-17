@@ -94,8 +94,35 @@ def normalizar_datos_oferta(datos: dict) -> dict:
 def upsert_oferta(db: Session, datos: dict) -> tuple[bool, bool]:
     """
     Inserta o actualiza una oferta.
+
+    Aplica el intake transversal antes de tocar la BD: descarta noticias,
+    resultados, vencidos por antigüedad y montos absurdos. Si el intake
+    descarta, retorna ``(False, False)`` y la fila no se escribe.
+
     Retorna: (es_nueva: bool, fue_actualizada: bool)
     """
+    # Mapping a las claves que el intake espera (url_oferta, fecha_*).
+    # No mutamos ``datos`` para no afectar al caller; pasamos una vista.
+    from scrapers.intake import intake_validate_offer
+
+    intake_view = dict(datos)
+    intake_view.setdefault("url_oferta", datos.get("url_original"))
+    decision = intake_validate_offer(intake_view)
+    if decision.discard:
+        logger.info(
+            "intake_descarte url=%s motivo=%s cargo=%s",
+            datos.get("url_original"),
+            decision.motivo_descarte,
+            (datos.get("cargo") or "")[:80],
+        )
+        return False, False
+
+    # Aplicamos las correcciones que el intake haya hecho (renta saneada).
+    if intake_view.get("renta_validation_status"):
+        datos = dict(datos)
+        datos["renta_bruta_min"] = intake_view.get("renta_bruta_min")
+        datos["renta_bruta_max"] = intake_view.get("renta_bruta_max")
+
     datos = normalizar_datos_oferta(datos)
     url_hash = url_a_hash(datos["url_original"])
     try:

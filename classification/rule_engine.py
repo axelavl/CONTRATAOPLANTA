@@ -201,14 +201,18 @@ class RuleEngine:
 
     @staticmethod
     def _build_negative_rules() -> list[Rule]:
+        # Lista negativa unificada: convergen aquí las frases-marca que el
+        # intake transversal usa para descartar (scrapers/intake.py).
         return [
             Rule("news_keyword", r"noticias?|prensa|comunicado|bolet[ií]n|actualidad|novedades?", -0.24, "contenido de noticias/prensa"),
             Rule("events_keyword", r"agenda|evento|seminario|charla|taller|ceremonia|aniversario|operativo", -0.24, "contenido de evento/agenda"),
             Rule("institutional_keyword", r"publicaci[oó]n institucional|art[ií]culo|blog|memoria anual", -0.18, "contenido institucional genérico"),
-            Rule("results_keyword", r"resultados del concurso|n[oó]mina de seleccionados|adjudicaci[oó]n|proceso finalizado|concurso cerrado", -0.35, "página de resultados/cierre"),
-            Rule("historical_keyword", r"archivo|hist[oó]rico", -0.2, "contenido histórico"),
+            Rule("results_keyword", r"resultados? del concurso|n[oó]mina de seleccionad|n[oó]mina final|lista de seleccionad|adjudicaci[oó]n|proceso finalizado|concurso cerrado|convocatoria cerrada|postulaciones cerradas", -0.35, "página de resultados/cierre"),
+            Rule("acta_resolucion", r"\bact[ao]\b|resoluci[oó]n exenta|decreto exento", -0.20, "acta/resolución/decreto sin convocatoria vigente"),
+            Rule("historical_keyword", r"archivo|hist[oó]rico|a[nñ]os anteriores|concursos? anteriores", -0.25, "contenido histórico"),
             Rule("procurement_keyword", r"licitaci[oó]n|proveedor|compra p[úu]blica|mercado p[úu]blico|subvenci[oó]n|fondos concursables", -0.35, "contenido no laboral (compras/fondos)"),
-            Rule("community_keyword", r"participaci[oó]n ciudadana|actividad comunitaria|cuenta p[úu]blica|concurso escolar|concurso art[ií]stico", -0.30, "convocatoria comunitaria no laboral"),
-            Rule("url_news", r"/noticias/|/prensa/|/blog/|/novedades/", -0.25, "URL de noticias", target="url"),
-            Rule("url_non_jobs", r"/licitaciones|/transparencia|/cuenta-publica|/actividades|/agenda", -0.25, "URL con baja probabilidad laboral", target="url"),
+            Rule("community_keyword", r"participaci[oó]n ciudadana|actividad comunitaria|cuenta p[úu]blica|concurso escolar|concurso art[ií]stico|concurso de proyectos", -0.30, "convocatoria comunitaria no laboral"),
+            Rule("internal_only", r"solo difusi[oó]n( interna)?|difusi[oó]n interna", -0.40, "aviso solo de difusión interna"),
+            Rule("url_news", r"/noticias/|/prensa/|/blog/|/novedades/|/comunicados", -0.25, "URL de noticias", target="url"),
+            Rule("url_non_jobs", r"/licitaciones?|/cuenta-publica|/actividades|/agenda|/galer[ií]a|/historico|/anteriores", -0.25, "URL con baja probabilidad laboral", target="url"),
         ]
