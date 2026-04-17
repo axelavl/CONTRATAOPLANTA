@@ -47,7 +47,10 @@ BADGE_TEXTS = {
 }
 BAD_CARGO_TEXTS = BUTTON_TEXTS | BADGE_TEXTS
 HEADING_TAGS = ("h2", "h3", "h4", "strong")
-DEFAULT_TIMEOUT = 10
+# Tier CRITICAL: la fuente más densa del país. Damos margen de timeout (la
+# Servicio Civil suele ser lenta en horario peak) y un reintento extra.
+DEFAULT_TIMEOUT = 20
+DEFAULT_MAX_ATTEMPTS = 4
 
 
 @dataclass(slots=True)
@@ -104,7 +107,9 @@ class EmpleosPublicosScraper(BaseScraper):
             "http://empleospublicos.cl/%",
         ]
         self._rate_limiter = AsyncRateLimiter(self.delay)
-        self._detail_semaphore = asyncio.Semaphore(20)
+        # 30 detalles concurrentes: empíricamente la API soporta ese paralelismo
+        # sin throttle agresivo. El semáforo evita saturar el servidor.
+        self._detail_semaphore = asyncio.Semaphore(30)
 
     def fetch_ofertas(self) -> list[dict[str, Any]]:
         return asyncio.run(self._fetch_ofertas_async())
@@ -241,7 +246,10 @@ class EmpleosPublicosScraper(BaseScraper):
         request: PageRequest,
     ) -> str:
         last_error: Exception | None = None
-        for attempt in range(1, 4):
+        # 4 intentos (1 + 3 retries) con backoff exponencial corto. Antes
+        # eran 3 intentos lo que hacía que ofertas se perdieran cuando el
+        # Servicio Civil tarda en responder en horario peak.
+        for attempt in range(1, DEFAULT_MAX_ATTEMPTS + 1):
             try:
                 await self._rate_limiter.wait()
                 headers = {
@@ -255,14 +263,17 @@ class EmpleosPublicosScraper(BaseScraper):
                     headers=headers,
                     allow_redirects=True,
                 ) as response:
-                    if response.status in {403, 404, 429, 500, 502, 503, 504}:
+                    # 404/410 son terminales: no reintentamos.
+                    if response.status in {404, 410}:
+                        response.raise_for_status()
+                    if response.status in {403, 429, 500, 502, 503, 504}:
                         response.raise_for_status()
                     return await response.text(encoding="utf-8", errors="ignore")
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 last_error = exc
-                if attempt >= 3:
+                if attempt >= DEFAULT_MAX_ATTEMPTS:
                     break
-                backoff = 2 ** (attempt - 1)
+                backoff = min(8, 2 ** (attempt - 1))
                 self.logger.warning(
                     "evento=request_retry scraper=%s url=%s intento=%s espera=%s error=%s",
                     self.nombre,

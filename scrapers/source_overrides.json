@@ -1,5 +1,5 @@
 {
-  "_doc": "Overrides manuales de estado/kind por institución. Tiene prioridad absoluta sobre la clasificación automática de source_status.classify_source. Cada entrada: {id, status, kind, reason?, notes?}. status ∈ active|experimental|manual_review|js_required|blocked|broken|no_data|disabled. kind ∈ empleos_publicos|wordpress|generic|custom_trabajando|custom_hiringroom|custom_buk|custom_policia|custom_ffaa|skip.",
+  "_doc": "Overrides manuales por institución. Tiene prioridad absoluta sobre la clasificación automática. Cada entrada: {id, status, kind, frequency_tier?, reason?, notes?}. status ∈ active|experimental|manual_review|js_required|blocked|broken|no_data|disabled. kind ∈ empleos_publicos|wordpress|generic|custom_trabajando|custom_hiringroom|custom_buk|custom_policia|custom_ffaa|skip. frequency_tier ∈ critical|high|medium|low|eventual|exploratory (ver scrapers/frequency_policy.py). Si no se declara, se infiere automáticamente.",
   "overrides": [
     {"_comment": "=== FF.AA. y Orden ==="},
 

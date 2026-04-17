@@ -34,18 +34,51 @@ logging.basicConfig(
 logger = logging.getLogger("orquestador")
 
 # ── Registro de scrapers disponibles ─────────────────────────────────────────
-# Cada entrada: (fuente_id, nombre, módulo, función)
+# Cada entrada: (fuente_id, nombre, módulo, función, frequency_tier).
+# El tier se aplica a fuentes.frecuencia_hrs en cada corrida (ver
+# ``aplicar_politica_frecuencia``) para que la política viva en código y no
+# en la BD. Tiers: critical|high|medium|low|eventual|exploratory
+# (ver scrapers/frequency_policy.py).
 SCRAPERS = [
-    (1, "Portal Empleos Públicos",   "scrapers.empleos_publicos", "ejecutar"),
-    (2, "Alta Dirección Pública",    "scrapers.adp",              "ejecutar"),
-    (3, "Poder Judicial",            "scrapers.poder_judicial",   "ejecutar"),
-    (4, "Banco Central",             "scrapers.banco_central",    "ejecutar"),
-    (5, "Contraloría",               "scrapers.contraloria",      "ejecutar"),
-    (6, "Fiscalía de Chile",         "scrapers.fiscalia",         "ejecutar"),
-    (7, "Dirección del Trabajo",     "scrapers.dir_trabajo",      "ejecutar"),
-    (8, "Gobiernos Regionales",      "scrapers.gobiernos_regionales", "ejecutar"),
-    (9, "Plataforma Trabajando.cl",  "scrapers.trabajando",       "ejecutar"),
+    (1, "Portal Empleos Públicos",   "scrapers.empleos_publicos", "ejecutar", "critical"),
+    (2, "Alta Dirección Pública",    "scrapers.adp",              "ejecutar", "high"),
+    (3, "Poder Judicial",            "scrapers.poder_judicial",   "ejecutar", "medium"),
+    (4, "Banco Central",             "scrapers.banco_central",    "ejecutar", "medium"),
+    (5, "Contraloría",               "scrapers.contraloria",      "ejecutar", "medium"),
+    (6, "Fiscalía de Chile",         "scrapers.fiscalia",         "ejecutar", "medium"),
+    (7, "Dirección del Trabajo",     "scrapers.dir_trabajo",      "ejecutar", "medium"),
+    (8, "Gobiernos Regionales",      "scrapers.gobiernos_regionales", "ejecutar", "low"),
+    (9, "Plataforma Trabajando.cl",  "scrapers.trabajando",       "ejecutar", "high"),
 ]
+
+
+def aplicar_politica_frecuencia(db) -> None:
+    """Sincroniza fuentes.frecuencia_hrs con el tier declarado en SCRAPERS.
+
+    Idempotente: cada corrida re-aplica el tier configurado en código.
+    Mantiene la fuente como única fuente de verdad sobre las frecuencias.
+    """
+    try:
+        from scrapers.frequency_policy import FrequencyTier, hours_for_tier
+    except ImportError:
+        return
+    for entry in SCRAPERS:
+        if len(entry) < 5:
+            continue
+        fuente_id, _nombre, _mod, _fn, tier_name = entry
+        try:
+            tier = FrequencyTier(tier_name)
+        except ValueError:
+            continue
+        try:
+            db.execute(
+                text("UPDATE fuentes SET frecuencia_hrs = :hrs WHERE id = :id"),
+                {"hrs": hours_for_tier(tier), "id": fuente_id},
+            )
+        except Exception:
+            db.rollback()
+            return
+    db.commit()
 
 
 def debe_ejecutar(db, fuente_id: int, forzar: bool = False) -> bool:
@@ -99,7 +132,7 @@ def listar_estado(db):
     print("="*70 + "\n")
 
 
-def ejecutar_scraper(fuente_id: int, modulo: str, funcion: str, dry_run: bool = False) -> bool:
+def ejecutar_scraper(fuente_id: int, modulo: str, funcion: str, dry_run: bool = False, *_extra) -> bool:
     """Importa y ejecuta un scraper dinámicamente."""
     try:
         import importlib
@@ -128,6 +161,11 @@ def main():
 
     db = SessionLocal()
 
+    # Sincroniza fuentes.frecuencia_hrs con la política declarada en SCRAPERS.
+    # Idempotente; sin esto, una fuente nunca obtiene su tier por defecto.
+    if not args.dry_run:
+        aplicar_politica_frecuencia(db)
+
     if args.listar:
         listar_estado(db)
         db.close()
@@ -141,7 +179,9 @@ def main():
     ejecutados = 0
     exitosos   = 0
 
-    for fuente_id, nombre, modulo, funcion in SCRAPERS:
+    for entry in SCRAPERS:
+        # Soporta entradas con y sin tier (5 vs 4 elementos) por compatibilidad.
+        fuente_id, nombre, modulo, funcion, *_rest = entry
         # Filtrar por fuente específica si se indicó
         if args.fuente and fuente_id != args.fuente:
             continue

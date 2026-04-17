@@ -551,12 +551,20 @@ def print_classification_detail(
     enriched: list[tuple[dict[str, Any], SourceDecision]],
     allowed: set[SourceStatus],
 ) -> None:
+    from scrapers.frequency_policy import resolve_tier
+
     for inst, dec in enriched:
         mark = "RUN " if dec.status in allowed else "SKIP"
         nombre = clean_text(inst.get("nombre"))[:45]
+        tier = resolve_tier(
+            inst,
+            kind=dec.kind,
+            status=dec.status,
+            override={"frequency_tier": dec.frequency_tier} if dec.frequency_tier else None,
+        )
         print(
             f"{mark} [{dec.status.value:<14}] [{dec.kind.value:<18}] "
-            f"id={inst.get('id')} {nombre} — {dec.reason}"
+            f"[{tier.value:<11}] id={inst.get('id')} {nombre} — {dec.reason}"
         )
 
 
