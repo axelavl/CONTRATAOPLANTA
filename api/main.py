@@ -80,6 +80,8 @@ ALLOW_ORIGINS = [
     "https://contrataoplanta.netlify.app",
     "https://www.contrataoplanta.netlify.app",
     "https://estadoemplea.pages.dev",
+    "https://estadoemplea.cl",
+    "https://www.estadoemplea.cl",
 ]
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -90,7 +92,7 @@ ESTADO_SQL = (
     "WHEN o.fecha_cierre IS NOT NULL AND o.fecha_cierre < CURRENT_DATE THEN 'vencido' "
     "ELSE 'activo' END)"
 )
-SITE_URL = (os.getenv("SITE_URL", "https://contrataoplanta.cl") or "https://contrataoplanta.cl").rstrip("/")
+SITE_URL = (os.getenv("SITE_URL", "https://estadoemplea.cl") or "https://estadoemplea.cl").rstrip("/")
 WEB_INDEX_PATH = _PROJECT_ROOT / "web" / "index.html"
 DEFAULT_OG_IMAGE = f"{SITE_URL}/og-default.jpg"
 
@@ -525,7 +527,7 @@ def fetch_offer_for_meta(oferta_id: int) -> dict[str, Any] | None:
 def build_offer_meta(oferta: dict[str, Any] | None, canonical_url: str) -> dict[str, str]:
     if not oferta:
         return {
-            "title": "contrataoplanta.cl — Empleos públicos vigentes en Chile",
+            "title": "estadoemplea.cl — Empleos públicos vigentes en Chile",
             "description": "Encuentra empleos públicos en Chile, filtra por institución y revisa oportunidades del sector público.",
             "og_image": DEFAULT_OG_IMAGE,
             "canonical": canonical_url,

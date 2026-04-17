@@ -2191,8 +2191,8 @@ const _esLocalhost = (
   window.location.hostname === ''
 );
 const API_BASES = _esLocalhost
-  ? ['http://localhost:8000', 'https://contrataoplanta-production.up.railway.app']
-  : ['', 'https://contrataoplanta-production.up.railway.app'];
+  ? ['http://localhost:8000']
+  : [''];
 let API_BASE_ACTIVA = API_BASES[0];
 
 async function fetchApi(path, options = {}) {
@@ -3432,7 +3432,7 @@ function cerrarModal(e, force) {
   }
 }
 
-// Construye el deep-link a esta oferta dentro de contrataoplanta.cl.
+// Construye el deep-link a esta oferta dentro del dominio actual.
 // Ventaja vs compartir oferta.url_oferta directo: el receptor ve nuestra
 // previsualización (OG image dinámica) y aterriza en el modal preseleccionado,
 // con un solo click para postular.
@@ -3485,7 +3485,7 @@ function configurarCompartir(oferta) {
     const apiBase = (typeof API_BASE_ACTIVA === 'string') ? API_BASE_ACTIVA : '';
     const ogUrl = `${apiBase}/api/og/${oferta.id}.png`;
     if (navigator.share) {
-      navigator.share({ title: titulo, text: texto + '\nVer ofertas similares en contrataoplanta.cl', url })
+      navigator.share({ title: titulo, text: texto + `\nVer ofertas similares en ${window.location.hostname}`, url })
         .catch(() => abrirIG(oferta, url, ogUrl));
     } else {
       abrirIG(oferta, url, ogUrl);
