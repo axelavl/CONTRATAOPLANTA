@@ -1,0 +1,17 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host postulaciones.investigaciones.cl:443 was resolved.
+* IPv6: 2620:1ec:bdf::38, 2620:1ec:46::38
+* IPv4: 13.107.246.38, 13.107.213.38
+*   Trying [2620:1ec:bdf::38]:443...
+* Immediate connect fail for 2620:1ec:bdf::38: Network is unreachable
+*   Trying [2620:1ec:46::38]:443...
+* Immediate connect fail for 2620:1ec:46::38: Network is unreachable
+*   Trying 13.107.246.38:443...
+* Immediate connect fail for 13.107.246.38: Network is unreachable
+*   Trying 13.107.213.38:443...
+* Immediate connect fail for 13.107.213.38: Network is unreachable
+* Failed to connect to postulaciones.investigaciones.cl port 443 after 324 ms: Couldn't connect to server
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Closing connection
+curl: (7) Failed to connect to postulaciones.investigaciones.cl port 443 after 324 ms: Couldn't connect to server
