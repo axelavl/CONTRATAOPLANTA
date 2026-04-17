@@ -80,9 +80,9 @@
   var links = [
     { href: 'index.html',          text: 'Buscar empleos' },
     { href: 'favoritos.html',      text: '\u2661 Mis favoritos', cls: 'nav-link-favs', id: 'nav-mobile-favoritos' },
-    { href: 'instituciones.html',  text: 'Instituciones' },
     { href: 'estadisticas.html',   text: 'Estad\u00edsticas' },
-    { href: 'faq.html',            text: 'Preguntas frecuentes' }
+    { href: 'faq.html',            text: 'Preguntas frecuentes' },
+    { href: 'ruta-ingreso-empleo-publico.html', text: 'Ruta de ingreso' }
   ];
 
   // ── 4. Build hamburger button ─────────────────────────────────────

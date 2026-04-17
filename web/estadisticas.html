@@ -120,9 +120,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="nav-links">
       <a href="index.html">Buscar empleos</a>
       <a href="favoritos.html" id="nav-favoritos" class="nav-link-favs">♡ Mis favoritos</a>
-      <a href="instituciones.html">Instituciones</a>
       <a href="estadisticas.html" class="active">Estadísticas</a>
       <a href="faq.html">Preguntas frecuentes</a>
+      <a href="ruta-ingreso-empleo-publico.html">Ruta de ingreso</a>
     </div>
   </div>
 </nav>
@@ -142,7 +142,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="page-hero-inner">
     <div class="page-kicker">Datos abiertos</div>
     <h1 class="page-titulo">Estadísticas del empleo público</h1>
-    <p class="page-sub">Cómo se mueven los concursos hoy: volumen, sectores e instituciones con más actividad.</p>
+    <p class="page-sub">Entiende dónde se están abriendo concursos, cómo cambia la demanda y qué señales te conviene seguir para postular mejor.</p>
   </div>
 </div>
 
@@ -215,7 +215,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div>
       <div class="footer-col-titulo">Explorar</div>
       <a href="index.html" class="footer-link">Buscar empleos</a>
-      <a href="instituciones.html" class="footer-link">Por institución</a>
+      <a href="ruta-ingreso-empleo-publico.html" class="footer-link">Ruta de ingreso</a>
       <a href="estadisticas.html" class="footer-link">Estadísticas</a>
     </div>
     <div>
@@ -324,7 +324,7 @@ function renderMasActivas(lista) {
   }
   const filas = lista.map(inst => `
     <tr>
-      <td><a href="instituciones.html?id=${inst.id}" class="inst-nombre">${inst.nombre}</a></td>
+      <td><a href="index.html?q=${encodeURIComponent(inst.nombre)}" class="inst-nombre">${inst.nombre}</a></td>
       <td><span class="badge-activas">${fmt(inst.activas)}</span></td>
       <td>${inst.nuevas_semana > 0 ? `<span class="badge-nuevas">+${inst.nuevas_semana}</span>` : '<span style="color:var(--texto3);font-size:12px">—</span>'}</td>
     </tr>
