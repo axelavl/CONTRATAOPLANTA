@@ -3,64 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>document.documentElement.classList.add('js-nav');</script>
 <title>Ruta de ingreso al empleo público — contrata o planta .cl</title>
-<meta name="description" content="Guía paso a paso para identificar ofertas vigentes, preparar antecedentes y postular correctamente a oportunidades del sector público.">
+<meta name="description" content="Guía paso a paso para entender convocatorias, revisar requisitos y postular correctamente a empleos públicos en Chile.">
 <link rel="canonical" href="https://estadoemplea.pages.dev/ruta-ingreso-empleo-publico.html">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0A2E6E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles/shared-layout.css">
 <style>
-:root { --azul:#0A2E6E; --cielo:#1A6BCC; --bg:#F5F4EF; --bg2:#EDECEA; --borde:#D9D7CF; --texto:#111827; --texto2:#4B5563; --blanco:#FAFAF8; --r-l:16px; }
-*{box-sizing:border-box} body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--texto)}
-.page-content{max-width:1100px;margin:0 auto;padding:36px 24px 80px}
-.intro-card,.step-card,.tips-card{background:var(--blanco);border:1px solid var(--borde);border-radius:var(--r-l);padding:22px}
-.intro-card p{color:var(--texto2);line-height:1.75}
-.steps-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
-.step-card h3{margin:0 0 8px;font-size:17px;color:var(--azul)}
-.step-card p,.step-card li{color:var(--texto2);font-size:14px;line-height:1.65}
-.step-num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#D6E6F8;color:#0A2E6E;font-weight:700;margin-bottom:8px}
-.step-card ul{margin:8px 0 0 18px;padding:0;display:grid;gap:6px}
-.tips-card{margin-top:18px}
-.tips-card h2{font-family:'Lora',serif;color:var(--azul);margin:0 0 8px}
-@media (max-width: 860px){.steps-grid{grid-template-columns:1fr}} @media (max-width: 600px){.page-content{padding:24px 14px 56px}.intro-card,.step-card,.tips-card{padding:16px}}
+:root{--azul:#0A2E6E;--cielo:#1A6BCC;--bg:#F5F4EF;--bg2:#EDECEA;--borde:#D9D7CF;--texto:#111827;--texto2:#4B5563;--blanco:#FAFAF8}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--texto)}
+.skip-link{position:absolute;left:12px;top:-48px;z-index:1000;background:var(--azul);color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600}.skip-link:focus{top:10px}
+.page-content{max-width:960px;margin:0 auto;padding:40px 24px 76px}
+.intro-card{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:20px;margin-bottom:22px}.intro-card p{line-height:1.7;color:var(--texto2)}
+.steps{display:grid;gap:12px}
+.step{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:16px;display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start}
+.step-num{width:44px;height:44px;border-radius:999px;background:var(--azul);color:#fff;display:grid;place-items:center;font-weight:700}
+.step h2{font-size:18px;color:var(--azul);margin-bottom:8px}
+.step p,.step li{font-size:14px;color:var(--texto2);line-height:1.7}
+.step ul{padding-left:18px;display:grid;gap:6px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.btn{display:inline-block;padding:10px 14px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none}.btn-primary{background:var(--azul);color:#fff}.btn-secondary{background:#fff;color:var(--azul);border:1px solid var(--borde)}
+@media(max-width:720px){.page-content{padding:28px 16px 64px}.step{grid-template-columns:1fr}.step-num{width:34px;height:34px;font-size:12px}}
 </style>
 </head>
 <body>
 <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
 <header><nav><div class="nav-inner"><a href="index.html" class="logo">contrata <em>o</em> planta <em class="logo-domain-muted">.cl</em></a><div class="nav-links"><a href="index.html">Buscar empleos</a><a href="favoritos.html" class="nav-link-favs">♡ Mis favoritos</a><a href="instituciones.html">Instituciones</a><a href="estadisticas.html">Estadísticas</a><a href="faq.html">Preguntas frecuentes</a><a href="ruta-ingreso-empleo-publico.html" class="active">Ruta de ingreso</a></div><a href="index.html#alertas" class="nav-alerta">+ Crear alerta</a></div></nav></header>
 <main id="contenido-principal">
-<section class="page-hero"><div class="page-hero-inner"><div class="page-kicker">Guía práctica</div><h1 class="page-titulo">Ruta de ingreso al empleo público</h1><p class="page-sub">Un recorrido claro para analizar ofertas, preparar documentos y postular a tiempo.</p></div></section>
+<div class="page-hero"><div class="page-hero-inner"><div class="page-kicker">Guía práctica</div><h1 class="page-titulo">Ruta de ingreso al empleo público</h1><p class="page-sub">Un recorrido claro para pasar de “estoy buscando” a “postulé correctamente y a tiempo”.</p></div></div>
 <div class="page-content">
-  <section class="intro-card">
-    <p>El portal centraliza convocatorias públicas y te ayuda a priorizar oportunidades vigentes. Esta guía te muestra qué revisar en cada etapa para evitar errores frecuentes y no perder plazos relevantes.</p>
-    <p><a href="index.html">Revisar vigentes</a> · <a href="index.html?vista=cerradas">Consultar historial cerradas</a></p>
-  </section>
-
-  <section class="steps-grid">
-    <article class="step-card"><div class="step-num">1</div><h3>Qué es el portal</h3><p>Es un agregador de ofertas públicas. No reemplaza el sitio oficial de cada institución ni gestiona el proceso formal de postulación.</p></article>
-    <article class="step-card"><div class="step-num">2</div><h3>Cómo identificar ofertas vigentes</h3><p>Prioriza badges <strong>Disponible</strong> y <strong>Cierra hoy</strong>. Las ofertas <strong>Finalizadas</strong> están en historial para referencia.</p></article>
-    <article class="step-card"><div class="step-num">3</div><h3>Cómo leer una publicación</h3><ul><li>Funciones principales del cargo.</li><li>Requisitos excluyentes y deseables.</li><li>Jornada, grado/renta y ubicación.</li><li>Fecha de cierre exacta.</li></ul></article>
-    <article class="step-card"><div class="step-num">4</div><h3>Qué revisar antes de postular</h3><ul><li>Si cumples formación y experiencia mínima.</li><li>Si tienes certificados vigentes y legibles.</li><li>Si el canal de envío exige formato específico (PDF, firma, anexos).</li></ul></article>
-    <article class="step-card"><div class="step-num">5</div><h3>Documentos habituales</h3><ul><li>CV actualizado.</li><li>Certificado de título y/o especialización.</li><li>Certificados de experiencia.</li><li>Antecedentes solicitados en bases (inhabilidades, declaración jurada, etc.).</li></ul></article>
-    <article class="step-card"><div class="step-num">6</div><h3>Distinguir canal de postulación</h3><ul><li><strong>Correo:</strong> valida asunto y formato de archivos.</li><li><strong>Plataforma externa:</strong> completa todos los campos requeridos.</li><li><strong>Sitio institucional:</strong> revisa instrucciones de carga y confirmación.</li></ul></article>
-    <article class="step-card"><div class="step-num">7</div><h3>Revisar fechas y plazos</h3><p>No esperes el último día. Si marca “Cierra hoy”, postula con anticipación para evitar cortes por horario o fallas de plataforma.</p></article>
-    <article class="step-card"><div class="step-num">8</div><h3>Si la convocatoria ya cerró</h3><p>Guárdala como referencia en historial para comparar requisitos y preparar mejor tu próxima postulación.</p></article>
-    <article class="step-card"><div class="step-num">9</div><h3>Errores frecuentes</h3><ul><li>Subir documentos incompletos.</li><li>No leer requisitos excluyentes.</li><li>Postular fuera de plazo.</li><li>No validar canal oficial.</li></ul></article>
-    <article class="step-card"><div class="step-num">10</div><h3>Recomendaciones para no perder oportunidades</h3><ul><li>Activa alertas por región/cargo.</li><li>Ordena por fecha de cierre.</li><li>Prepara carpeta base de documentos.</li><li>Revisa el portal al menos 3 veces por semana.</li></ul></article>
-  </section>
-
-  <section class="tips-card">
-    <h2>Atajo recomendado</h2>
-    <p>Entra al listado principal, mantén la vista en <strong>Vigentes</strong>, ordena por <strong>Cierra antes</strong> y configura alertas. Usa el historial solo para analizar tendencias y preparar postulaciones futuras.</p>
-  </section>
+<section class="intro-card"><p>Esta ruta organiza lo esencial para entender una convocatoria pública: cómo identificar si aún está vigente, cómo leer una publicación sin omitir requisitos críticos y qué hacer cuando una oferta ya cerró. El objetivo es ayudarte a postular mejor, con menos errores y más consistencia.</p></section>
+<section class="steps">
+<article class="step"><div class="step-num">1</div><div><h2>Qué es el portal</h2><p>Es un agregador de convocatorias públicas. Centraliza ofertas y te redirige al canal oficial de la institución para postular.</p></div></article>
+<article class="step"><div class="step-num">2</div><div><h2>Cómo identificar una oferta vigente</h2><p>Prioriza estados <strong>Disponible</strong> y <strong>Cierra hoy</strong>. Las finalizadas se consultan en historial para referencia, pero ya no están postulables.</p></div></article>
+<article class="step"><div class="step-num">3</div><div><h2>Cómo leer correctamente una publicación</h2><ul><li>Revisa cargo, institución, región/comuna y jornada.</li><li>Confirma requisitos obligatorios y experiencia mínima.</li><li>Valida fechas, documentos y canal de postulación.</li></ul></div></article>
+<article class="step"><div class="step-num">4</div><div><h2>Qué revisar antes de postular</h2><ul><li>Que tus documentos estén vigentes y legibles.</li><li>Que cumples requisitos excluyentes.</li><li>Que tienes respaldo del envío (correo, comprobante o ticket).</li></ul></div></article>
+<article class="step"><div class="step-num">5</div><div><h2>Documentos frecuentes solicitados</h2><p>Título o certificado, CV actualizado, cédula, certificados de experiencia y antecedentes según bases.</p></div></article>
+<article class="step"><div class="step-num">6</div><div><h2>Cómo distinguir el canal de postulación</h2><ul><li><strong>Correo:</strong> envía antecedentes en formato indicado y asunto correcto.</li><li><strong>Plataforma externa:</strong> completa formularios y adjunta respaldo.</li><li><strong>Sitio institucional:</strong> sigue instrucciones específicas de la entidad.</li></ul></div></article>
+<article class="step"><div class="step-num">7</div><div><h2>Cómo revisar fechas y plazos</h2><p>Usa la fecha de cierre como control principal y no esperes al último día. Si indica “Cierra hoy”, priorízala de inmediato.</p></div></article>
+<article class="step"><div class="step-num">8</div><div><h2>Qué hacer si la convocatoria ya cerró</h2><p>Revisa convocatorias anteriores de esa institución para detectar patrones de cargos, requisitos y frecuencia de publicación.</p></div></article>
+<article class="step"><div class="step-num">9</div><div><h2>Errores frecuentes de postulantes</h2><ul><li>Adjuntar documentos incompletos o vencidos.</li><li>No respetar formato/nombre de archivo solicitado.</li><li>Postular fuera de plazo por no revisar estado diariamente.</li></ul></div></article>
+<article class="step"><div class="step-num">10</div><div><h2>Recomendaciones para no perder oportunidades</h2><ul><li>Activa alertas por cargo y región.</li><li>Guarda favoritos y revisa plazos cada día.</li><li>Mantén una carpeta base de documentos actualizados.</li></ul></div></article>
+</section>
+<div class="cta-row"><a class="btn btn-primary" href="index.html">Buscar ofertas vigentes</a><a class="btn btn-secondary" href="faq.html">Ir a preguntas frecuentes</a></div>
 </div>
 </main>
-<footer><div class="footer-inner"><div class="footer-brand"><a href="index.html" class="logo logo-footer">contrata <em>o</em> planta <em class="logo-domain-muted">.cl</em></a><p class="footer-desc">La plataforma laboral del sector público chileno.</p></div><div><div class="footer-col-titulo">Explorar</div><a href="index.html" class="footer-link">Buscar empleos</a><a href="historial.html" class="footer-link">Historial</a></div><div><div class="footer-col-titulo">Guías</div><a href="ruta-ingreso-empleo-publico.html" class="footer-link">Ruta de ingreso</a><a href="faq.html" class="footer-link">Preguntas frecuentes</a></div><div><div class="footer-col-titulo">Legal</div><a href="terminos.html" class="footer-link">Términos</a><a href="privacidad.html" class="footer-link">Privacidad</a></div></div><div class="footer-bottom"><span>© 2026 contrata o planta .cl</span><span>No somos un organismo estatal.</span></div></footer>
+<footer><div class="footer-inner"><div class="footer-brand"><a href="index.html" class="logo logo-footer">contrata <em>o</em> planta <em class="logo-domain-muted">.cl</em></a><p class="footer-desc">La plataforma laboral del sector público chileno.</p></div><div><div class="footer-col-titulo">Explorar</div><a href="index.html" class="footer-link">Buscar empleos</a><a href="historial.html" class="footer-link">Convocatorias anteriores</a></div><div><div class="footer-col-titulo">Guías</div><a href="ruta-ingreso-empleo-publico.html" class="footer-link">Ruta de ingreso</a><a href="faq.html" class="footer-link">Preguntas frecuentes</a></div><div><div class="footer-col-titulo">Legal</div><a href="terminos.html" class="footer-link">Términos</a><a href="privacidad.html" class="footer-link">Privacidad</a></div></div><div class="footer-bottom"><span>© 2026 contrata o planta .cl</span><span>Información orientativa · verifica siempre en fuente oficial</span></div></footer>
+<script src="nav-mobile.js"></script>
 </body>
 </html>
