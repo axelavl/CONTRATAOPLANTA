@@ -2330,14 +2330,25 @@ async function fetchApi(path, options = {}) {
       // Aceptar sólo respuestas que vengan de la API real (Content-Type JSON).
       // Si nginx u otro servidor devuelve HTML (ej. 404 de archivos estáticos
       // o 502 de un upstream caído), intentamos la siguiente base en vez de
-      // aceptar la respuesta inválida. Para JSON devolvemos siempre, incluso
-      // con 5xx: el backend respondió y el llamador puede mostrar el detalle
-      // real en lugar de volver a intentar contra fallbacks equivalentes.
+      // aceptar la respuesta inválida.
       const ct = (resp.headers.get('content-type') || '').toLowerCase();
       if (ct.includes('application/json')) {
-        API_BASE_ACTIVA = base;
-        console.info('[API] Endpoint activo', { base: API_BASE_ACTIVA || '(mismo origen)', path, status: resp.status });
-        return resp;
+        // Caso especial: la Cloudflare Pages Function proxy (functions/api/
+        // [[path]].js) sintetiza un 502 con { error: 'backend_unreachable' }
+        // cuando no pudo alcanzar al backend. Ese 5xx NO es del backend real,
+        // es del proxy mismo — si nos quedamos con él perdemos la cadena de
+        // fallbacks remotos. Lo tratamos como una base caída y seguimos.
+        const esProxyCaido = resp.status >= 500 && resp.headers.get('x-proxy-error') === 'backend_unreachable';
+        if (!esProxyCaido) {
+          API_BASE_ACTIVA = base;
+          console.info('[API] Endpoint activo', { base: API_BASE_ACTIVA || '(mismo origen)', path, status: resp.status });
+          return resp;
+        }
+        const detalleProxy = `Proxy ${resp.status} backend_unreachable en ${url}`;
+        ultimoError = new Error(detalleProxy);
+        errores.push({ url, base, detalle: detalleProxy });
+        console.warn('[API] Proxy no alcanzó al backend, probando siguiente base', { url, status: resp.status });
+        continue;
       }
 
       const detalle = `HTTP ${resp.status} (${ct || 'sin content-type'})`;
