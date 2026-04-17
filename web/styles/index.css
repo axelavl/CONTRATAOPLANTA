@@ -1157,10 +1157,11 @@ footer {
 .modal-body { padding: 14px 20px; }
 .modal-seccion { margin-bottom: 14px; }
 .modal-seccion-titulo {
-  font-size: 10px; font-weight: 700;
+  font-size: 11px; font-weight: 800;
   text-transform: uppercase; letter-spacing: 1px;
-  color: var(--texto3); margin-bottom: 8px;
+  color: var(--texto); margin-bottom: 11px;
   font-family: 'Inter', sans-serif;
+  line-height: 1.35;
 }
 .modal-info-grid {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -1180,27 +1181,27 @@ footer {
 }
 /* ═══ Rich text compartido — descripción / requisitos / funciones ═══ */
 .modal-rich-text {
-  font-size: 13.5px; color: var(--texto2);
-  line-height: 1.65; text-align: left;
+  font-size: 14px; color: var(--texto2);
+  line-height: 1.72; text-align: left;
   font-family: 'Inter', sans-serif;
   word-break: break-word; overflow-wrap: anywhere;
 }
 .modal-rich-text > *:first-child { margin-top: 0; }
 .modal-rich-text > *:last-child  { margin-bottom: 0; }
 .modal-rich-text p {
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
 }
 .modal-rich-text p:last-child { margin-bottom: 0; }
 .modal-rich-text strong,
 .modal-rich-text b {
   color: var(--texto);
-  font-weight: 700;
+  font-weight: 600;
 }
 .modal-rich-text h4,
 .modal-rich-text .rt-heading {
-  font-size: 13.5px; font-weight: 700;
-  color: var(--texto); margin: 14px 0 6px 0;
-  letter-spacing: -0.1px; line-height: 1.35;
+  font-size: 14px; font-weight: 700;
+  color: var(--texto); margin: 18px 0 8px 0;
+  letter-spacing: 0; line-height: 1.4;
   display: block;
 }
 .modal-rich-text > .rt-heading:first-child { margin-top: 0; }
@@ -1220,19 +1221,19 @@ footer {
 }
 .modal-rich-text ul,
 .modal-rich-text ol {
-  margin: 4px 0 10px 0;
+  margin: 6px 0 12px 0;
   padding-left: 0;
   list-style: none;
   display: flex; flex-direction: column; gap: 6px;
 }
 .modal-rich-text ul + p,
-.modal-rich-text ol + p { margin-top: 8px; }
+.modal-rich-text ol + p { margin-top: 10px; }
 .modal-rich-text .rt-heading + ul,
-.modal-rich-text .rt-heading + ol { margin-top: 4px; }
+.modal-rich-text .rt-heading + ol { margin-top: 6px; }
 .modal-rich-text li {
   position: relative;
   padding-left: 18px;
-  line-height: 1.55;
+  line-height: 1.62;
 }
 .modal-rich-text ul > li::before {
   content: '→'; color: var(--cielo);
@@ -1285,6 +1286,32 @@ footer {
   .modal-rich-text .rt-truncate[data-rt-collapsed="true"] .rt-truncate-inner {
     max-height: 360px;
   }
+}
+
+/* Jerarquía tipográfica reforzada en escritorio */
+@media (min-width: 901px) {
+  .modal-body { padding: 24px 28px; }
+  .modal-seccion { margin-bottom: 28px; }
+  .modal-seccion-titulo {
+    font-size: 12px;
+    margin-bottom: 14px;
+    letter-spacing: 1.1px;
+  }
+  .modal-rich-text {
+    font-size: 14.5px;
+    line-height: 1.76;
+  }
+  .modal-rich-text .rt-heading {
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 22px;
+    margin-bottom: 9px;
+  }
+  .modal-rich-text p { margin-bottom: 11px; }
+  .modal-rich-text ul,
+  .modal-rich-text ol { margin-bottom: 14px; }
+  .modal-rich-text strong,
+  .modal-rich-text b { font-weight: 600; }
 }
 
 /* Compatibilidad con clases antiguas */
