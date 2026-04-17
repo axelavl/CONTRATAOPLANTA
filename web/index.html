@@ -456,6 +456,18 @@ nav {
 }
 .ctrl-select:focus { border-color: var(--cielo); }
 .ctrl-select:hover { border-color: #c0bdb4; }
+.btn-copiar-busqueda {
+  height: 32px; padding: 0 12px;
+  border: 1.5px solid var(--borde); border-radius: 7px;
+  font-size: 12px; font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  color: var(--texto2); background: white; cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-copiar-busqueda:hover { border-color: var(--cielo); color: var(--cielo); }
+.btn-copiar-busqueda.btn-copiar-ok {
+  border-color: #86EFAC; color: #166534; background: var(--verde-l);
+}
 .vista-btns {
   display: flex; gap: 2px;
   background: var(--bg2); border-radius: 8px; padding: 3px;
@@ -556,6 +568,15 @@ nav {
 .oferta-renta {
   font-weight: 700; color: var(--texto);
   font-size: 14px;
+}
+.oferta-frescura {
+  font-size: 11px; font-weight: 600;
+  color: var(--texto2); background: var(--bg2);
+  padding: 2px 8px; border-radius: 999px;
+  font-family: 'Inter', sans-serif;
+}
+.oferta-frescura.frescura-nueva {
+  color: #166534; background: var(--verde-l);
 }
 .oferta-footer {
   display: flex; justify-content: space-between;
@@ -726,6 +747,33 @@ nav {
   text-decoration: none; font-weight: 600;
 }
 .widget-body { padding: 14px 18px; }
+
+/* Widget sectores explorados */
+.sector-explorado {
+  display: flex; width: 100%; align-items: center;
+  justify-content: space-between; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  background: var(--bg); border: 1px solid var(--borde);
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Inter', sans-serif; text-align: left;
+  transition: all .15s;
+}
+.sector-explorado:hover {
+  border-color: var(--cielo); background: var(--cielo-l);
+}
+.sector-explorado-nombre {
+  font-size: 13px; font-weight: 600; color: var(--texto);
+}
+.sector-explorado-clics {
+  font-size: 11px; color: var(--texto3);
+  background: white; padding: 2px 8px; border-radius: 999px;
+}
+#btn-reset-sectores {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 11px;
+  color: var(--texto3);
+}
+#btn-reset-sectores:hover { color: var(--rojo); }
 
 /* Widget alertas */
 .alerta-form { display: flex; flex-direction: column; gap: 9px; }
@@ -905,6 +953,36 @@ nav {
   font-size: 12px;
   color: var(--texto3);
 }
+.estado-sugerencias {
+  margin-top: 18px;
+}
+.estado-sugerencias-titulo {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--texto3); margin-bottom: 8px;
+}
+.estado-sugerencias-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center;
+}
+.sugerencia-chip {
+  font-family: 'Inter', sans-serif; font-size: 12px;
+  padding: 6px 14px; border-radius: 999px;
+  background: white; color: var(--azul);
+  border: 1.5px solid var(--cielo-l);
+  cursor: pointer; transition: all .15s;
+}
+.sugerencia-chip:hover {
+  background: var(--cielo-l); border-color: var(--cielo);
+}
+.estado-alerta-cta {
+  margin-top: 18px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  padding: 10px 18px; border-radius: var(--r);
+  background: var(--azul); color: white; border: none;
+  cursor: pointer; transition: background .15s;
+}
+.estado-alerta-cta:hover { background: var(--azul-m); }
 .skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
@@ -1375,6 +1453,9 @@ footer {
         <span class="count-sub" id="count-sub">· cargando...</span>
       </div>
       <div class="resultados-controles">
+        <!-- Copiar búsqueda -->
+        <button class="btn-copiar-busqueda" id="btn-copiar-busqueda" type="button" onclick="copiarUrlBusqueda()" title="Copiar enlace de esta búsqueda con filtros">🔗 Copiar búsqueda</button>
+        <div class="ctrl-sep"></div>
         <!-- Orden -->
         <select class="ctrl-select" id="ctrl-orden" onchange="setOrdenSelect(this)" title="Ordenar por">
           <option value="recientes">↓ Más recientes</option>
@@ -1497,6 +1578,17 @@ footer {
           <button class="btn-alerta" id="btn-alerta-submit">Activar alerta gratuita</button>
           <p class="alerta-nota">Recibirás un aviso cuando aparezcan ofertas que coincidan con tu perfil. Sin spam.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Widget tus sectores explorados (aparece tras 3+ clics en Postular) -->
+    <div class="widget" id="widget-sectores-explorados" style="display:none">
+      <div class="widget-header">
+        <div class="widget-titulo">🎯 Tus sectores más explorados</div>
+        <button type="button" class="widget-ver-todo" id="btn-reset-sectores" title="Borrar historial local">Limpiar</button>
+      </div>
+      <div class="widget-body">
+        <div id="sectores-explorados-lista"></div>
       </div>
     </div>
 
@@ -1932,6 +2024,38 @@ function formatFecha(iso) {
   return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// ── Días transcurridos desde una fecha ISO (YYYY-MM-DD o ISO datetime) ────
+function diasDesdeHoy(iso) {
+  if (!iso) return null;
+  try {
+    const fecha = new Date(String(iso).length <= 10 ? iso + 'T00:00:00' : iso);
+    if (isNaN(fecha.getTime())) return null;
+    const hoy = new Date();
+    const msDia = 86400000;
+    const d0 = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    const d1 = Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+    return Math.max(0, Math.round((d0 - d1) / msDia));
+  } catch { return null; }
+}
+
+// ── Texto "hace X días" a partir de fecha_publicacion o fecha_scraped ─────
+function frescuraTexto(oferta) {
+  const iso = oferta?.fecha_publicacion || oferta?.fecha_scraped || null;
+  const d = diasDesdeHoy(iso);
+  if (d === null || d > 30) return null;
+  if (d <= 2) return `✨ Nueva · hace ${d === 0 ? 'menos de 1 día' : d === 1 ? '1 día' : `${d} días`}`;
+  return `Publicada hace ${d} días`;
+}
+
+// ── Sugerencias populares para el estado vacío ────────────────────────────
+const BUSQUEDAS_POPULARES = [
+  { label: 'Psicólogo · RM',        q: 'psicólogo', region: 'Metropolitana de Santiago' },
+  { label: 'Contador',              q: 'contador' },
+  { label: 'Enfermero · Salud',     q: 'enfermero', sector: 'Salud Pública' },
+  { label: 'Profesor',              q: 'profesor' },
+  { label: 'Ingeniero · Ejecutivo', q: 'ingeniero', sector: 'Ejecutivo Central' },
+];
+
 function plazoInfo(dias) {
   if (dias === null || dias === undefined) return { clase: 'plazo-verde', texto: 'Sin fecha límite', color: 'var(--texto3)' };
   if (dias < 0)  return { clase: 'plazo-rojo',  texto: 'Cerrada',        color: 'var(--rojo)' };
@@ -2002,6 +2126,7 @@ function renderCard(oferta) {
   const sector  = oferta.sector || '';
   const ciudad  = ciudadValida(oferta.ciudad, oferta.institucion);
   const jornada = jornadaValida(oferta.jornada);
+  const frescura = frescuraTexto(oferta);
 
   const favs = JSON.parse(localStorage.getItem('fav_contrataoplanta') || '[]');
   const esFav = favs.some(f => f.id === oferta.id);
@@ -2040,6 +2165,7 @@ function renderCard(oferta) {
         ${escHtml(ciudad)}
       </span>` : ''}
       ${jornada ? `<span class="oferta-detalle">⏱ ${escHtml(jornada)}</span>` : ''}
+      ${frescura ? `<span class="oferta-frescura${frescura.startsWith('✨') ? ' frescura-nueva' : ''}">${escHtml(frescura)}</span>` : ''}
       ${renta ? `<span class="oferta-renta">${renta}</span>` : ''}
     </div>
     <div class="oferta-footer">
@@ -2051,7 +2177,7 @@ function renderCard(oferta) {
       <div class="oferta-acciones">
         ${renderBtnBases(oferta)}
         ${oferta.url_oferta && esUrlValida(oferta.url_oferta)
-  ? `<a class="btn-postular" href="${escAttr(oferta.url_oferta)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Postular →</a>`
+  ? `<a class="btn-postular" href="${escAttr(oferta.url_oferta)}" target="_blank" rel="noopener noreferrer" data-sector="${escAttr(sector)}" onclick="event.stopPropagation()">Postular →</a>`
   : `<span class="btn-postular btn-postular-off" title="Enlace de postulación no disponible" onclick="event.stopPropagation()">Sin enlace</span>`}
       </div>
     </div>
@@ -2205,12 +2331,58 @@ function renderEsqueletos() {
 
 // ── Estado vacío / error ──────────────────────────────────────────────────
 function renderVacio() {
+  const chips = BUSQUEDAS_POPULARES.map((s, i) => `
+    <button type="button" class="sugerencia-chip" data-idx="${i}">${escHtml(s.label)}</button>
+  `).join('');
   document.getElementById('lista-ofertas').innerHTML = `
     <div class="estado-vacio">
       🔍 No se encontraron ofertas con los filtros seleccionados.
       <p class="estado-mensaje">Prueba con otros términos o quita algunos filtros.</p>
+      <div class="estado-sugerencias">
+        <div class="estado-sugerencias-titulo">Búsquedas populares</div>
+        <div class="estado-sugerencias-chips" id="sugerencias-chips">${chips}</div>
+      </div>
+      <button type="button" class="estado-alerta-cta" id="btn-estado-alerta">
+        🔔 Activar alerta con estos filtros
+      </button>
     </div>`;
   document.getElementById('paginacion').innerHTML = '';
+  // Enlazar listeners
+  document.getElementById('sugerencias-chips')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sugerencia-chip');
+    if (!btn) return;
+    aplicarSugerencia(BUSQUEDAS_POPULARES[parseInt(btn.dataset.idx, 10)]);
+  });
+  document.getElementById('btn-estado-alerta')?.addEventListener('click', prellenarAlertaDesdeFiltros);
+}
+
+function aplicarSugerencia(sug) {
+  if (!sug) return;
+  estado.q        = sug.q || '';
+  estado.region   = sug.region || '';
+  estado.sector   = sug.sector || '';
+  estado.pagina   = 1;
+  const inputQ = document.getElementById('input-cargo');
+  if (inputQ) inputQ.value = estado.q;
+  const selRegion = document.getElementById('filtro-region');
+  if (selRegion && estado.region) selRegion.value = estado.region;
+  const selSector = document.getElementById('filtro-sector');
+  if (selSector && estado.sector) selSector.value = estado.sector;
+  cargarOfertas();
+}
+
+function prellenarAlertaDesdeFiltros() {
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+  setVal('alerta-keywords', estado.q || '');
+  setVal('alerta-region',   estado.region || '');
+  setVal('alerta-sector',   estado.sector || '');
+  // Si el usuario tiene un solo tipo de contrato activo, pre-seleccionarlo
+  if (Array.isArray(estado.tipos) && estado.tipos.length === 1) {
+    setVal('alerta-tipo', estado.tipos[0]);
+  }
+  const widget = document.getElementById('alertas');
+  if (widget) widget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('alerta-email')?.focus(), 450);
 }
 
 let _reintentoTimer = null;
@@ -2548,8 +2720,11 @@ async function abrirModal(ofertaId) {
     document.getElementById('modal-plazo-icon').textContent = detalle.icon;
     document.getElementById('modal-plazo-label').textContent = detalle.label;
     const fechaCierre = o.fecha_cierre ? formatFecha(o.fecha_cierre) : '';
-    document.getElementById('modal-plazo-fecha').textContent =
-      fechaCierre ? `${detalle.sub} · Fecha de cierre: ${fechaCierre}` : detalle.sub;
+    const frescuraMod = frescuraTexto(o);
+    const partes = [detalle.sub];
+    if (fechaCierre) partes.push(`Fecha de cierre: ${fechaCierre}`);
+    if (frescuraMod) partes.push(frescuraMod);
+    document.getElementById('modal-plazo-fecha').textContent = partes.join(' · ');
 
     // Detalles
     document.getElementById('modal-renta').textContent         = renta || 'Consultar bases';
@@ -2580,7 +2755,10 @@ async function abrirModal(ofertaId) {
     if (urlPostular) {
       btnPostular.disabled = false;
       btnPostular.textContent = 'Ir a postular →';
-      btnPostular.onclick = () => window.open(urlPostular, '_blank', 'noopener,noreferrer');
+      btnPostular.onclick = () => {
+        registrarClicPostular(o);
+        window.open(urlPostular, '_blank', 'noopener,noreferrer');
+      };
     } else {
       btnPostular.disabled = true;
       btnPostular.textContent = 'Enlace no disponible';
@@ -2927,6 +3105,77 @@ document.querySelectorAll('.filtro-tag.activo[onclick*="toggleFiltro"]').forEach
   }
 });
 
+// ── Tracking local de clics en Postular (por sector) ─────────────────────
+const SECTORES_KEY = 'sectores_explorados_contrataoplanta';
+const SECTORES_MAX_EDAD_MS = 1000 * 60 * 60 * 24 * 180; // 6 meses
+
+function _cargarSectoresExplorados() {
+  try { return JSON.parse(localStorage.getItem(SECTORES_KEY) || '{}') || {}; }
+  catch { return {}; }
+}
+function _guardarSectoresExplorados(obj) {
+  try { localStorage.setItem(SECTORES_KEY, JSON.stringify(obj)); } catch { /* quota */ }
+}
+function registrarClicPostular(oferta) {
+  const sector = (oferta?.sector || '').trim();
+  if (!sector) return;
+  const data = _cargarSectoresExplorados();
+  const entrada = data[sector] || { clics: 0, ultimo: null };
+  entrada.clics += 1;
+  entrada.ultimo = new Date().toISOString();
+  data[sector] = entrada;
+  // Purga lazy: descarta sectores no tocados en 6 meses
+  const ahora = Date.now();
+  for (const k of Object.keys(data)) {
+    const t = data[k]?.ultimo ? new Date(data[k].ultimo).getTime() : 0;
+    if (!t || (ahora - t) > SECTORES_MAX_EDAD_MS) delete data[k];
+  }
+  _guardarSectoresExplorados(data);
+  renderSectoresExplorados();
+}
+function _totalClicsSectores(data) {
+  return Object.values(data).reduce((s, v) => s + (v?.clics || 0), 0);
+}
+function renderSectoresExplorados() {
+  const widget = document.getElementById('widget-sectores-explorados');
+  const lista  = document.getElementById('sectores-explorados-lista');
+  if (!widget || !lista) return;
+  const data = _cargarSectoresExplorados();
+  const total = _totalClicsSectores(data);
+  if (total < 3) { widget.style.display = 'none'; return; }
+  const top = Object.entries(data)
+    .map(([sector, v]) => ({ sector, clics: v?.clics || 0 }))
+    .sort((a, b) => b.clics - a.clics)
+    .slice(0, 3);
+  lista.innerHTML = top.map(item => `
+    <button type="button" class="sector-explorado" data-sector="${escAttr(item.sector)}">
+      <span class="sector-explorado-nombre">${escHtml(item.sector)}</span>
+      <span class="sector-explorado-clics">${item.clics} clic${item.clics === 1 ? '' : 's'}</span>
+    </button>
+  `).join('');
+  widget.style.display = '';
+  lista.querySelectorAll('.sector-explorado').forEach(btn => {
+    btn.addEventListener('click', () => filtrarPorSectorRapido(btn.dataset.sector));
+  });
+}
+function filtrarPorSectorRapido(sector) {
+  if (!sector) return;
+  const sel = document.getElementById('filtro-sector');
+  if (sel) {
+    const opt = Array.from(sel.options).find(o => o.value === sector || o.textContent === sector);
+    if (opt) sel.value = opt.value || sector;
+  }
+  estado.sector = sector;
+  estado.pagina = 1;
+  window.scrollTo({ top: document.getElementById('lista-ofertas').offsetTop - 90, behavior: 'smooth' });
+  cargarOfertas();
+}
+document.addEventListener('DOMContentLoaded', renderSectoresExplorados);
+document.getElementById('btn-reset-sectores')?.addEventListener('click', () => {
+  _guardarSectoresExplorados({});
+  renderSectoresExplorados();
+});
+
 // Contador de favoritos en el nav
 function actualizarNavFavs() {
   const favs = JSON.parse(localStorage.getItem('fav_contrataoplanta') || '[]');
@@ -2965,6 +3214,13 @@ actualizarNavFavs();
 // Reemplaza los onclick="abrirModal(id)" inline (anti-patrón de la auditoría 3.2).
 document.getElementById('lista-ofertas')?.addEventListener('click', (e) => {
   if (e.target.closest('.btn-fav-card, .btn-fav-row')) return; // el favorito tiene su lógica
+  // Tracking local: clic en Postular (card)
+  const btnPost = e.target.closest('a.btn-postular');
+  if (btnPost) {
+    const sector = btnPost.dataset.sector || '';
+    if (sector) registrarClicPostular({ sector });
+    return;
+  }
   const el = e.target.closest('[data-oferta-id]');
   if (!el) return;
   const id = parseInt(el.dataset.ofertaId, 10);
@@ -2995,6 +3251,27 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ── 3. Sincronización con la URL (shareable filters) — auditoría 3.5 ──
+function construirUrlBusqueda() {
+  const url = new URL(window.location.href);
+  // Limpiar params previos
+  ['q','region','sector','tipos','pagina','ciudad','renta_min','institucion','orden'].forEach(k => url.searchParams.delete(k));
+  const setOrDel = (k, v) => {
+    if (v === null || v === undefined || v === '' || v === false ||
+        (Array.isArray(v) && v.length === 0)) return;
+    url.searchParams.set(k, Array.isArray(v) ? v.join(',') : String(v));
+  };
+  setOrDel('q', estado.q);
+  setOrDel('region', estado.region);
+  setOrDel('sector', estado.sector);
+  setOrDel('tipos', estado.tipos);
+  setOrDel('ciudad', estado.ciudad);
+  setOrDel('renta_min', estado.renta_min);
+  setOrDel('institucion', estado.institucion_id);
+  setOrDel('orden', estado.orden);
+  setOrDel('pagina', estado.pagina > 1 ? estado.pagina : '');
+  return url.toString();
+}
+
 function sincronizarURL() {
   try {
     const url = new URL(window.location.href);
@@ -3014,6 +3291,30 @@ function sincronizarURL() {
     setOrDel('pagina', estado.pagina > 1 ? estado.pagina : '');
     window.history.replaceState(null, '', url.toString());
   } catch { /* ignorar */ }
+}
+
+async function copiarUrlBusqueda() {
+  const btn = document.getElementById('btn-copiar-busqueda');
+  if (!btn) return;
+  const url = construirUrlBusqueda();
+  const textoOrig = btn.dataset.textoOrig || btn.textContent;
+  btn.dataset.textoOrig = textoOrig;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      window.prompt('Copia este enlace:', url);
+    }
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('btn-copiar-ok');
+  } catch {
+    window.prompt('Copia este enlace:', url);
+    btn.textContent = '✓ Copiado';
+  }
+  setTimeout(() => {
+    btn.textContent = textoOrig;
+    btn.classList.remove('btn-copiar-ok');
+  }, 2000);
 }
 
 function restaurarFiltrosDesdeURL() {
