@@ -142,7 +142,7 @@ nav {
 /* ═══ HERO ════════════════════════════════════════════════════════════ */
 .hero {
   background: var(--azul);
-  padding: 48px 24px 0;
+  padding: 32px 24px 0;
   position: relative; overflow: hidden;
 }
 .hero::before {
@@ -156,7 +156,7 @@ nav {
   max-width: 1200px; margin: 0 auto;
   position: relative;
 }
-.hero-left { padding-bottom: 32px; }
+.hero-left { padding-bottom: 20px; }
 
 .hero-kicker {
   font-family: 'Inter', sans-serif;
@@ -171,15 +171,15 @@ nav {
 }
 .hero-h1 {
   font-family: 'Lora', Georgia, serif;
-  font-size: clamp(38px, 5vw, 66px);
+  font-size: clamp(32px, 4.6vw, 56px);
   color: white; line-height: 1.03;
   letter-spacing: -1.5px; margin-bottom: 16px;
 }
 .hero-h1 em { color: var(--acento); font-style: italic; }
 .hero-sub {
-  font-size: 16px; color: rgba(255,255,255,0.72);
-  line-height: 1.7;
-  margin-bottom: 20px; font-weight: 300;
+  font-size: 15px; color: rgba(255,255,255,0.74);
+  line-height: 1.6;
+  margin-bottom: 14px; font-weight: 300;
 }
 /* Stats bar under subtitle */
 .hero-stats-bar {
@@ -189,8 +189,8 @@ nav {
   display: flex; align-items: center; gap: 6px;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px; padding: 5px 14px;
-  font-size: 12px; color: rgba(255,255,255,0.65);
+  border-radius: 18px; padding: 4px 12px;
+  font-size: 11.5px; color: rgba(255,255,255,0.65);
   font-family: 'Inter', sans-serif;
 }
 .hero-stat-pill strong {
@@ -232,7 +232,7 @@ nav {
 .buscador-wrap {
   background: var(--blanco);
   border-radius: var(--r-l) var(--r-l) 0 0;
-  padding: 24px 24px 0;
+  padding: 18px 18px 0;
   box-shadow: 0 -4px 32px rgba(10,46,110,0.2);
   margin-top: 8px;
 }
@@ -351,7 +351,7 @@ nav {
 /* ═══ LAYOUT PRINCIPAL ════════════════════════════════════════════════ */
 .main {
   max-width: 1200px; margin: 0 auto;
-  padding: 28px 24px 64px;
+  padding: 20px 24px 48px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 24px;
@@ -362,7 +362,7 @@ nav {
 .sidebar { min-width: 0; overflow: hidden; }
 
 .data-update-global{
-  max-width:1200px;margin:18px auto 0;padding:0 24px;
+  max-width:1200px;margin:8px auto 0;padding:0 24px 16px;
   font-size:13px;color:var(--texto3);
 }
 .data-update-global strong{color:var(--texto2)}
@@ -393,7 +393,7 @@ nav {
 @media (max-width: 480px){.estado-listado-tabs{display:grid;width:100%;max-width:none}.estado-tab{font-size:11.5px;padding:8px 10px}}
 .resultados-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px; gap: 10px; flex-wrap: wrap;
 }
 .resultados-count {
   font-size: 14px; color: var(--texto2); flex-shrink: 0;
@@ -403,7 +403,7 @@ nav {
 .resultados-controles {
   --ctrl-h: 36px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(170px, auto));
+  grid-template-columns: minmax(210px, auto) minmax(120px, auto);
   justify-content: end;
   gap: 8px;
 }
@@ -438,6 +438,13 @@ nav {
   color: var(--texto2); background: white; cursor: pointer;
   transition: all .15s; white-space: nowrap;
 }
+.btn-copiar-busqueda--sec {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--texto3);
+  border-color: var(--bg2);
+}
+.btn-copiar-busqueda--sec:hover { color: var(--texto2); border-color: var(--borde); }
 .btn-copiar-busqueda:hover { border-color: var(--cielo); color: var(--cielo); }
 .btn-copiar-busqueda.btn-copiar-ok {
   border-color: #86EFAC; color: #166534; background: var(--verde-l);
@@ -487,16 +494,16 @@ nav {
 .vista-btn:hover:not(.activo) { color: var(--texto); background: rgba(255,255,255,0.5); }
 
 /* ═══ TARJETAS DE OFERTA — vista cards (default) ════════════════════ */
-.ofertas-lista { display: flex; flex-direction: column; gap: 12px; }
+.ofertas-lista { display: flex; flex-direction: column; gap: 10px; }
 
 /* ═══ TARJETAS DE OFERTA ═══════════════════════════════════════════ */
-.ofertas-lista { display: flex; flex-direction: column; gap: 12px; }
+.ofertas-lista { display: flex; flex-direction: column; gap: 10px; }
 
 .oferta-card {
   background: var(--blanco);
   border: 1.5px solid var(--borde);
   border-radius: var(--r-l);
-  padding: 20px 22px;
+  padding: 16px 18px;
   cursor: pointer;
   transition: all .2s;
   position: relative;
@@ -538,12 +545,16 @@ nav {
   font-size: 12px; font-weight: 600;
   color: var(--cielo); margin-bottom: 3px;
   text-transform: uppercase; letter-spacing: 0.3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .oferta-cargo {
   font-family: 'Lora', Georgia, serif;
-  font-size: 19px; color: var(--azul);
-  line-height: 1.2; margin-bottom: 4px;
+  font-size: 18px; color: var(--azul);
+  line-height: 1.24; margin-bottom: 6px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .oferta-tipo-wrap {
   display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
@@ -575,6 +586,11 @@ nav {
 .oferta-renta {
   font-weight: 700; color: var(--texto);
   font-size: 14px;
+}
+.oferta-renta--muted {
+  color: var(--texto3);
+  font-weight: 500;
+  font-size: 12px;
 }
 .oferta-frescura {
   font-size: 11px; font-weight: 600;
@@ -609,7 +625,7 @@ nav {
   50% { opacity: .35; }
 }
 
-.btn-postular {
+.btn-detalle {
   font-size: 12px; font-weight: 600;
   padding: 7px 16px; border-radius: 7px;
   background: var(--azul); color: white;
@@ -617,7 +633,7 @@ nav {
   font-family: 'Inter', sans-serif;
   transition: background .15s;
 }
-.btn-postular:hover { background: var(--azul-m); }
+.btn-detalle:hover { background: var(--azul-m); }
 .btn-ver {
   font-size: 12px; font-weight: 500;
   padding: 7px 16px; border-radius: 7px;
@@ -749,14 +765,14 @@ nav {
 
 .widget {
   background: var(--blanco);
-  border: 1.5px solid var(--borde);
+  border: 1px solid #e7edf5;
   border-radius: var(--r-l);
   overflow: hidden;
   min-width: 0;
   word-break: break-word;
 }
 .widget-header {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--bg2);
   display: flex; justify-content: space-between; align-items: center;
 }
@@ -768,7 +784,7 @@ nav {
   font-size: 11px; color: var(--cielo);
   text-decoration: none; font-weight: 600;
 }
-.widget-body { padding: 14px 18px; }
+.widget-body { padding: 12px 14px; }
 
 /* Widget sectores explorados */
 .sector-explorado {
@@ -1599,12 +1615,12 @@ footer {
     width: 100%;
     justify-content: flex-end;
   }
-  .btn-postular, .btn-ver, .btn-ver-off, .btn-postular-off {
+  .btn-detalle, .btn-ver, .btn-ver-off, .btn-postular-off {
     font-size: 13px; padding: 10px 16px;
     min-height: 40px;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .btn-postular { flex: 1; text-align: center; }
+  .btn-detalle { flex: 1; text-align: center; }
   .btn-ver, .btn-ver-off { flex: 1; text-align: center; }
   .oferta-plazo { font-size: 13px; }
   /* Vista tarjetas: fuentes más compactas en móvil */
@@ -1618,13 +1634,13 @@ footer {
   .js-nav .nav-links { display: none; }
   .js-nav .nav-alerta { display: none; }
   /* Compactar el hero para que los filtros queden cerca del listado */
-  .hero { padding: 20px 16px 0; }
-  .hero-h1 { font-size: 28px; margin-bottom: 10px; letter-spacing: -0.5px; }
+  .hero { padding: 14px 16px 0; }
+  .hero-h1 { font-size: 24px; margin-bottom: 8px; letter-spacing: -0.2px; }
   .hero-kicker { margin-bottom: 10px; }
-  .hero-sub { font-size: 14px; line-height: 1.5; margin-bottom: 12px; }
-  .hero-left { padding-bottom: 12px; }
+  .hero-sub { font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+  .hero-left { padding-bottom: 8px; }
   .hero-stats-bar { display: none; }
-  .buscador-wrap { padding: 16px 16px 0; margin-top: 4px; border-radius: var(--r) var(--r) 0 0; }
+  .buscador-wrap { padding: 12px 12px 0; margin-top: 2px; border-radius: var(--r) var(--r) 0 0; }
   .buscador-form { grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
   .buscador-form > .campo:first-child { grid-column: auto; }
   .buscador-fila2 { grid-template-columns: 1fr; gap: 8px; margin-bottom: 8px; }
@@ -1635,7 +1651,7 @@ footer {
   .filtro-tag { font-size: 11px; padding: 4px 10px; }
   .filtros-titulo { font-size: 11.5px; }
   /* Reducir espacio entre filtros y listado */
-  .main { padding: 16px 16px 48px; gap: 16px; }
+  .main { padding: 12px 16px 40px; gap: 14px; }
   .footer-inner { grid-template-columns: 1fr; gap: 24px; }
   .footer-bottom { flex-direction: column; gap: 4px; text-align: center; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -1664,6 +1680,7 @@ footer {
   /* Sidebar: hide heavy widgets on mobile */
   .sidebar .widget:has(.hist-bar-wrap) { display: none; }
   .sidebar .widget:has(#masactivas-lista) { display: none; }
+  .ad-slot-sidebar { display: none; }
   /* Compacta en móvil: oculta tipo, compacta plazo/renta */
   .row-meta { display: none; }
   .oferta-row-header > :nth-child(2) { display: none; }

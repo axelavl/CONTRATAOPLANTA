@@ -174,8 +174,8 @@
       <div class="resultados-controles">
         <div class="resultados-acciones">
           <!-- Copiar búsqueda -->
-          <button class="btn-copiar-busqueda" id="btn-copiar-busqueda" type="button" onclick="copiarUrlBusqueda()" title="Copiar enlace de esta búsqueda con filtros">🔗 Copiar búsqueda</button>
-          <button class="btn-copiar-busqueda btn-compartir-busqueda" id="btn-compartir-busqueda" type="button" onclick="abrirCompartirBusqueda(this)" title="Compartir esta búsqueda en RRSS" hidden>↗ Compartir</button>
+          <button class="btn-copiar-busqueda btn-copiar-busqueda--sec" id="btn-copiar-busqueda" type="button" onclick="copiarUrlBusqueda()" title="Copiar enlace de esta búsqueda con filtros">🔗 Copiar</button>
+          <button class="btn-copiar-busqueda btn-copiar-busqueda--sec btn-compartir-busqueda" id="btn-compartir-busqueda" type="button" onclick="abrirCompartirBusqueda(this)" title="Compartir esta búsqueda en RRSS" hidden>↗ Compartir</button>
         </div>
         <div class="resultados-preferencias">
           <!-- Orden -->
@@ -187,11 +187,7 @@
             <option value="az">A–Z cargo</option>
           </select>
           <!-- Por página -->
-          <select class="ctrl-select" id="ctrl-por-pagina" onchange="setPorPagina(this)" title="Ofertas por página">
-            <option value="10">10 / pág.</option>
-            <option value="20" selected>20 / pág.</option>
-            <option value="50">50 / pág.</option>
-          </select>
+          <select class="ctrl-select" id="ctrl-por-pagina" onchange="setPorPagina(this)" title="Ofertas por página"></select>
           <div class="ctrl-sep"></div>
           <!-- Vista -->
           <div class="vista-btns" role="group" aria-label="Formato de visualización">
@@ -402,29 +398,7 @@
 
 <div class="data-update-global">Última actualización de datos: <strong id="data-last-update">cargando…</strong></div>
 
-<section class="info-wrap">
-  <article class="info-section">
-    <h2 class="info-title">Cómo te ayudamos</h2>
-    <p class="info-sub">3 pasos simples para postular mejor en empleos públicos.</p>
-    <div class="pasos-grid">
-      <div class="paso-card">
-        <div class="paso-num">Paso 1</div>
-        <h3>Filtra por perfil y territorio</h3>
-        <p>Encuentra avisos por cargo, institución, región y renta para enfocarte en vacantes realmente pertinentes.</p>
-      </div>
-      <div class="paso-card">
-        <div class="paso-num">Paso 2</div>
-        <h3>Prioriza por plazo y oportunidad</h3>
-        <p>Revisa cierres próximos, ofertas nuevas y guarda favoritos para no perder concursos relevantes.</p>
-      </div>
-      <div class="paso-card">
-        <div class="paso-num">Paso 3</div>
-        <h3>Postula directo en fuente oficial</h3>
-        <p>Accede al enlace original de cada convocatoria para validar bases, documentos y requisitos finales.</p>
-      </div>
-    </div>
-  </article>
-</section>
+
 
 <!-- ══ FOOTER ══════════════════════════════════════════════════════ -->
 </main>
@@ -653,6 +627,13 @@ function guardarPrefs(prefs) {
 }
 
 const _prefs = cargarPrefs();
+const POR_PAGINA_CONFIG = {
+  // Mantener paginación clásica: en un agregador con filtros intensivos es más
+  // predecible para comparar ofertas entre páginas y no romper el contexto.
+  compacta: { opciones: [20, 30, 50, 100], porDefecto: 30 },
+  cards:    { opciones: [12, 20, 30], porDefecto: 20 },
+  grid:     { opciones: [9, 12, 18], porDefecto: 12 },
+};
 
 // Contador de visitas + auto-cambio silencioso a "cierre" en la 3ª visita
 // cuando el usuario aún no ha personalizado el orden.
@@ -674,13 +655,38 @@ const estado = {
   cierra_pronto: false,
   nuevas: false,
   orden:        _ordenInicial(_prefs),
-  por_pagina:   _prefs.por_pagina || 20,
+  por_pagina:   _prefs.por_pagina || POR_PAGINA_CONFIG[_prefs.vista || 'cards']?.porDefecto || 20,
   vista:        _prefs.vista      || 'cards',
   institucion_id: null,
   renta_min: null,
   ciudad: '',
   vista_listado: 'vigentes',
 };
+
+function getConfigPorPagina(vista = estado.vista) {
+  return POR_PAGINA_CONFIG[vista] || POR_PAGINA_CONFIG.cards;
+}
+
+function syncSelectPorPagina(opts = {}) {
+  const { resetPagina = false, recargar = false } = opts;
+  const sel = document.getElementById('ctrl-por-pagina');
+  if (!sel) return;
+  const cfg = getConfigPorPagina(estado.vista);
+  const guardadoPorVista = (cargarPrefs().por_pagina_por_vista || {})[estado.vista];
+  const fallback = cfg.porDefecto;
+  const anterior = Number(estado.por_pagina) || fallback;
+  const siguiente = cfg.opciones.includes(anterior)
+    ? anterior
+    : (cfg.opciones.includes(Number(guardadoPorVista)) ? Number(guardadoPorVista) : fallback);
+
+  sel.innerHTML = cfg.opciones
+    .map((n) => `<option value="${n}">${n} / pág.</option>`)
+    .join('');
+  sel.value = String(siguiente);
+  if (siguiente !== anterior) estado.por_pagina = siguiente;
+  if (resetPagina) estado.pagina = 1;
+  if (recargar) cargarOfertas();
+}
 
 let _debounceTimer = null;
 function debounceBuscar(ms = 400) {
@@ -1262,7 +1268,7 @@ function renderCard(oferta) {
       </span>` : ''}
       ${jornada ? `<span class="oferta-detalle">⏱ ${escHtml(jornada)}</span>` : ''}
       ${frescura ? `<span class="oferta-frescura${frescura.startsWith('✨') ? ' frescura-nueva' : ''}">${escHtml(frescura)}</span>` : ''}
-      ${renta ? `<span class="oferta-renta">${renta}</span>` : ''}
+      ${renta ? `<span class="oferta-renta">${renta}</span>` : '<span class="oferta-renta oferta-renta--muted">Renta no informada</span>'}
     </div>
     <div class="oferta-footer">
       <div class="oferta-plazo">
@@ -1271,10 +1277,7 @@ function renderCard(oferta) {
         ${oferta.fecha_cierre ? `<span style="color:var(--texto3);margin-left:4px">· ${formatFecha(oferta.fecha_cierre)}</span>` : ''}
       </div>
       <div class="oferta-acciones">
-        ${renderBtnBases(oferta)}
-        ${ofertaPostulable(oferta)
-  ? `<a class="btn-postular" href="${escAttr(oferta.url_oferta)}" target="_blank" rel="noopener noreferrer" data-sector="${escAttr(sector)}" onclick="event.stopPropagation()">Postular →</a>`
-  : `<span class="btn-postular btn-postular-off" title="Enlace de postulación no disponible" onclick="event.stopPropagation()">Sin enlace</span>`}
+        <button class="btn-detalle" onclick="event.stopPropagation();abrirModal(${Number(oferta.id) || 0})">Ver detalle</button>
       </div>
     </div>
     ${jobPosting.markup}
@@ -2499,15 +2502,20 @@ function setOrdenSelect(sel) {
 }
 
 function setPorPagina(sel) {
-  estado.por_pagina = parseInt(sel.value);
+  estado.por_pagina = parseInt(sel.value, 10);
   estado.pagina     = 1;
-  guardarPrefs({ por_pagina: estado.por_pagina });
+  const prefs = cargarPrefs();
+  const porVista = { ...(prefs.por_pagina_por_vista || {}), [estado.vista]: estado.por_pagina };
+  guardarPrefs({ por_pagina: estado.por_pagina, por_pagina_por_vista: porVista });
   cargarOfertas();
 }
 
 function setVista(modo) {
+  if (!['cards','compacta','grid'].includes(modo)) return;
+  const vistaAnterior = estado.vista;
   estado.vista = modo;
   guardarPrefs({ vista: modo });
+  syncSelectPorPagina({ resetPagina: true });
   // Actualizar botones activos
   ['cards','compacta','grid'].forEach(v => {
     const btn = document.getElementById(`vista-btn-${v}`);
@@ -2520,7 +2528,7 @@ function setVista(modo) {
   const nuevaClase = modo === 'grid' ? 'ofertas-lista cuadricula'
                    : modo === 'compacta' ? 'ofertas-lista compacta'
                    : 'ofertas-lista';
-  if (lista.className !== nuevaClase) {
+  if (lista.className !== nuevaClase || vistaAnterior !== modo) {
     // Necesita re-render porque el markup cambia entre cards y rows
     cargarOfertas();
   }
@@ -2698,9 +2706,7 @@ actualizarNavFavs();
 (function aplicarPrefs() {
   const orden = document.getElementById('ctrl-orden');
   if (orden) orden.value = estado.orden;
-
-  const porPag = document.getElementById('ctrl-por-pagina');
-  if (porPag) porPag.value = String(estado.por_pagina);
+  syncSelectPorPagina();
 
   ['cards','compacta','grid'].forEach(v => {
     const btn = document.getElementById(`vista-btn-${v}`);
@@ -2718,13 +2724,6 @@ actualizarNavFavs();
 // Reemplaza los onclick="abrirModal(id)" inline (anti-patrón de la auditoría 3.2).
 document.getElementById('lista-ofertas')?.addEventListener('click', (e) => {
   if (e.target.closest('.btn-fav-card, .btn-fav-row')) return; // el favorito tiene su lógica
-  // Tracking local: clic en Postular (card)
-  const btnPost = e.target.closest('a.btn-postular');
-  if (btnPost) {
-    const sector = btnPost.dataset.sector || '';
-    if (sector) registrarClicPostular({ sector });
-    return;
-  }
   const el = e.target.closest('[data-oferta-id]');
   if (!el) return;
   const id = parseInt(el.dataset.ofertaId, 10);
