@@ -1947,11 +1947,10 @@ function formatRichText(rawText) {
     .replace(/(^|[\s])[–—]\s+/g, '$1\n- ');
 
   // Enumeraciones inline: " 1. " / " 1) " / " (1) " dentro de un párrafo → salto de línea
-  // Se activa sólo cuando el dígito viene precedido por un signo de puntuación o espacio
-  // seguido de letra/número (evita dividir fechas o cifras como "año 2024.").
+  // Se limita a contextos de lista reales: el número debe venir después de puntuación
+  // (por ejemplo "Funciones: 1. ..."), evitando separar numerales dentro de prosa.
   normalizado = normalizado
-    .replace(/([.;:!?\)\]])\s+(\d{1,2})[.\)]\s+/g, '$1\n$2. ')
-    .replace(/\s+(?=(?:\d{1,2})[.\)]\s+[A-ZÁÉÍÓÚÑa-záéíóúñ])(\d{1,2})[.\)]\s+/g, '\n$1. ');
+    .replace(/([.;:!?\)\]])\s+(\d{1,2})[.\)]\s+/g, '$1\n$2. ');
 
   // Enumeraciones con guión inline: " - " tras puntuación → nuevo item
   normalizado = normalizado.replace(/([.;:!?\)\]])\s+-\s+/g, '$1\n- ');
