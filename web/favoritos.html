@@ -329,8 +329,7 @@ function formatRichText(rawText) {
     .replace(/\s*[•·]\s+/g, '\n- ')
     .replace(/(^|[\s])[–—]\s+/g, '$1\n- ');
   normalizado = normalizado
-    .replace(/([.;:!?\)\]])\s+(\d{1,2})[.\)]\s+/g, '$1\n$2. ')
-    .replace(/\s+(?=(?:\d{1,2})[.\)]\s+[A-ZÁÉÍÓÚÑa-záéíóúñ])(\d{1,2})[.\)]\s+/g, '\n$1. ');
+    .replace(/([.;:!?\)\]])\s+(\d{1,2})[.\)]\s+/g, '$1\n$2. ');
   normalizado = normalizado.replace(/([.;:!?\)\]])\s+-\s+/g, '$1\n- ');
   const guionesInline = (normalizado.match(/\S\s+-\s+\S/g) || []).length;
   if (guionesInline >= 2) {
