@@ -75,20 +75,7 @@ DEFAULT_ALLOW_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://contrataoplanta.cl",
-    "https://www.contrataoplanta.cl",
-    "https://api.contrataoplanta.cl",
-    "https://contrataoplanta.pages.dev",
-    "https://www.contrataoplanta.pages.dev",
-    "https://contrataoplanta.netlify.app",
-    "https://www.contrataoplanta.netlify.app",
-    "https://estadoemplea.cl",
-    "https://www.estadoemplea.cl",
-    "https://api.estadoemplea.cl",
     "https://estadoemplea.pages.dev",
-    "https://www.estadoemplea.pages.dev",
-    "https://estadoemplea.netlify.app",
-    "https://www.estadoemplea.netlify.app",
 ]
 
 
@@ -613,15 +600,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOW_ORIGINS,
+    # El regex cubre branch previews de Cloudflare Pages del proyecto activo
+    # (`<branch>.estadoemplea.pages.dev`). Los dominios de marca muertos
+    # (contrataoplanta.*, estadoemplea.cl, *.netlify.app) se eliminaron para
+    # evitar permitir orígenes que ya no corresponden a este deploy.
     allow_origin_regex=(
         r"https?://("
         r"(localhost|127\.0\.0\.1)(:\d+)?"
-        r"|([a-z0-9-]+\.)?contrataoplanta\.cl"
-        r"|([a-z0-9-]+\.)?estadoemplea\.cl"
-        r"|([a-z0-9-]+\.)?contrataoplanta\.pages\.dev"
         r"|([a-z0-9-]+\.)?estadoemplea\.pages\.dev"
-        r"|([a-z0-9-]+\.)?contrataoplanta\.netlify\.app"
-        r"|([a-z0-9-]+\.)?estadoemplea\.netlify\.app"
         r")$"
     ),
     allow_credentials=True,
