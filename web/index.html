@@ -2020,14 +2020,28 @@ const esUrlValida = (typeof isValidHttpUrl === 'function')
       }
     };
 
-// ── Botón "Ver bases": válido, inválido o inexistente ─────────────────────
+// ── Botón "Ver bases": consulta primero el flag del backend ──────────────
+// Si el backend marcó url_bases_valida === false → deshabilitar.
+// Si viene null/ausente → degradación a esUrlValida (validación client-side).
 function renderBtnBases(oferta) {
   const tieneBases = oferta.url_bases && oferta.url_bases !== oferta.url_oferta;
   if (!tieneBases) return '';
-  if (!esUrlValida(oferta.url_bases)) {
+  const flag = oferta.url_bases_valida;
+  const valida = (flag === false) ? false
+              : (flag === true)  ? true
+              : esUrlValida(oferta.url_bases);
+  if (!valida) {
     return `<span class="btn-ver btn-ver-off" title="Enlace de bases no disponible" onclick="event.stopPropagation()">Bases no disponibles</span>`;
   }
   return `<a class="btn-ver" href="${escAttr(oferta.url_bases)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Ver bases</a>`;
+}
+
+// ── ¿La oferta tiene una URL de postulación utilizable? ─────────────────
+function ofertaPostulable(oferta) {
+  const flag = oferta.url_oferta_valida;
+  if (flag === false) return false;
+  if (flag === true)  return true;
+  return esUrlValida(oferta.url_oferta);
 }
 
 // ── Utilidades de formato ──────────────────────────────────────────────────
@@ -2199,7 +2213,7 @@ function renderCard(oferta) {
       </div>
       <div class="oferta-acciones">
         ${renderBtnBases(oferta)}
-        ${oferta.url_oferta && esUrlValida(oferta.url_oferta)
+        ${ofertaPostulable(oferta)
   ? `<a class="btn-postular" href="${escAttr(oferta.url_oferta)}" target="_blank" rel="noopener noreferrer" data-sector="${escAttr(sector)}" onclick="event.stopPropagation()">Postular →</a>`
   : `<span class="btn-postular btn-postular-off" title="Enlace de postulación no disponible" onclick="event.stopPropagation()">Sin enlace</span>`}
       </div>
@@ -2860,9 +2874,13 @@ async function abrirModal(ofertaId) {
         '<div class="requisito-item">Consulta las bases del concurso para conocer los requisitos completos.</div>';
     }
 
-    // Botón postular
+    // Botón postular — gateado primero por flag backend, luego por validación cliente.
     const btnPostular = document.getElementById('modal-btn-postular');
-    const urlPostular = esUrlValida(o.url_oferta) ? o.url_oferta : (esUrlValida(o.url_bases) ? o.url_bases : null);
+    const ofertaOk = ofertaPostulable(o);
+    const basesOk  = (o.url_bases_valida === false) ? false
+                  : (o.url_bases_valida === true)  ? true
+                  : esUrlValida(o.url_bases);
+    const urlPostular = ofertaOk ? o.url_oferta : (basesOk ? o.url_bases : null);
     if (urlPostular) {
       btnPostular.disabled = false;
       btnPostular.textContent = 'Ir a postular →';
@@ -2876,9 +2894,9 @@ async function abrirModal(ofertaId) {
       btnPostular.onclick = null;
     }
 
-    // Botón Ver bases (solo si es distinto y válido)
+    // Botón Ver bases (solo si es distinto y válido por backend o cliente)
     const btnBases = document.getElementById('modal-btn-bases');
-    if (o.url_bases && o.url_bases !== o.url_oferta && esUrlValida(o.url_bases)) {
+    if (o.url_bases && o.url_bases !== o.url_oferta && basesOk) {
       btnBases.href = o.url_bases;
       btnBases.style.display = 'inline-flex';
     } else {
