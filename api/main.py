@@ -90,13 +90,19 @@ def _load_allow_origins() -> list[str]:
 ALLOW_ORIGINS = _load_allow_origins()
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-ESTADO_SQL = (
-    "COALESCE(NULLIF(o.estado, ''), "
+OFFER_STATUS_SQL = (
     "CASE "
-    "WHEN COALESCE(o.activa, TRUE) = FALSE THEN 'cerrado' "
-    "WHEN o.fecha_cierre IS NOT NULL AND o.fecha_cierre < CURRENT_DATE THEN 'vencido' "
-    "ELSE 'activo' END)"
+    "WHEN LOWER(COALESCE(NULLIF(o.estado, ''), '')) IN ('cerrado', 'vencido', 'closed', 'expired') THEN 'closed' "
+    "WHEN COALESCE(o.activa, TRUE) = FALSE THEN 'closed' "
+    "WHEN o.fecha_cierre IS NOT NULL AND o.fecha_cierre < CURRENT_DATE THEN 'closed' "
+    "WHEN COALESCE(o.fecha_inicio, o.fecha_publicacion) IS NOT NULL "
+    "  AND COALESCE(o.fecha_inicio, o.fecha_publicacion) > CURRENT_DATE THEN 'upcoming' "
+    "WHEN o.fecha_cierre = CURRENT_DATE THEN 'closing_today' "
+    "WHEN o.fecha_cierre IS NULL OR o.fecha_cierre > CURRENT_DATE THEN 'active' "
+    "ELSE 'unknown' "
+    "END"
 )
+ACTIVE_OFFER_SQL = f"{OFFER_STATUS_SQL} IN ('active', 'closing_today')"
 SITE_URL = (os.getenv("SITE_URL", "https://contrataoplanta.cl") or "https://contrataoplanta.cl").rstrip("/")
 WEB_INDEX_PATH = _PROJECT_ROOT / "web" / "index.html"
 DEFAULT_OG_IMAGE = f"{SITE_URL}/og-default.jpg"
@@ -263,6 +269,7 @@ def ensure_api_schema() -> None:
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS url_bases TEXT",
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS url_original TEXT",
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS estado VARCHAR(20)",
+        "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS fecha_inicio DATE",
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS activa BOOLEAN DEFAULT TRUE",
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS fecha_scraped TIMESTAMP DEFAULT NOW()",
         "ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS fecha_actualizado TIMESTAMP DEFAULT NOW()",
@@ -331,7 +338,7 @@ def ofertas_select_sql() -> str:
         o.url_oferta_valida,
         o.url_bases_valida,
         o.url_valida_chequeada_en,
-        {ESTADO_SQL} AS estado,
+        {OFFER_STATUS_SQL} AS estado,
         COALESCE(o.fecha_scraped, o.detectada_en, o.actualizada_en, o.creada_en) AS fecha_scraped,
         COALESCE(o.fecha_actualizado, o.actualizada_en, o.creada_en) AS fecha_actualizado,
         i.plataforma_empleo AS plataforma
@@ -356,9 +363,9 @@ def build_ofertas_filters(
     params: list[Any] = []
 
     if solo_activas:
-        where.append(f"{ESTADO_SQL} = 'activo'")
+        where.append(ACTIVE_OFFER_SQL)
     if closed_only:
-        where.append(f"{ESTADO_SQL} IN ('cerrado', 'vencido')")
+        where.append(f"{OFFER_STATUS_SQL} = 'closed'")
 
     if q:
         where.append(
@@ -642,11 +649,14 @@ def get_ofertas(
     ciudad: str | None = Query(None),
     cierra_pronto: bool = Query(False),
     nuevas: bool = Query(False),
+    vista: str = Query("vigentes", pattern="^(vigentes|cerradas|todas)$"),
     orden: str = Query("recientes"),
     pagina: int = Query(1, ge=1),
     por_pagina: int = Query(20, ge=1, le=100),
 ) -> dict[str, Any]:
     pag = Paginacion(pagina=pagina, por_pagina=por_pagina)
+    only_active = vista == "vigentes"
+    only_closed = vista == "cerradas"
     where_sql, params = build_ofertas_filters(
         q=q,
         region=region,
@@ -658,7 +668,8 @@ def get_ofertas(
         ciudad=ciudad,
         cierra_pronto=cierra_pronto,
         nuevas=nuevas,
-        solo_activas=True,
+        solo_activas=only_active,
+        closed_only=only_closed,
     )
 
     # Ofertas sin fecha_cierre van al final;
@@ -761,16 +772,16 @@ def get_estadisticas() -> dict[str, Any]:
     conteos = execute_fetch_one(
         f"""
         SELECT
-            COUNT(*) FILTER (WHERE {ESTADO_SQL.replace('o.', '')} = 'activo') AS activas_hoy,
+            COUNT(*) FILTER (WHERE {ACTIVE_OFFER_SQL.replace('o.', '')}) AS activas_hoy,
             COUNT(*) FILTER (
                 WHERE COALESCE(fecha_scraped, detectada_en, actualizada_en, creada_en) >= NOW() - INTERVAL '48 hours'
-                  AND {ESTADO_SQL.replace('o.', '')} = 'activo'
+                  AND {ACTIVE_OFFER_SQL.replace('o.', '')}
             ) AS nuevas_48h,
             COUNT(*) FILTER (
                 WHERE fecha_cierre = CURRENT_DATE
-                  AND {ESTADO_SQL.replace('o.', '')} = 'activo'
+                  AND {ACTIVE_OFFER_SQL.replace('o.', '')}
             ) AS cierran_hoy,
-            COUNT(DISTINCT institucion_id) FILTER (WHERE {ESTADO_SQL.replace('o.', '')} = 'activo') AS instituciones_activas
+            COUNT(DISTINCT institucion_id) FILTER (WHERE {ACTIVE_OFFER_SQL.replace('o.', '')}) AS instituciones_activas
         FROM ofertas o
         """
     ) or {}
@@ -781,7 +792,7 @@ def get_estadisticas() -> dict[str, Any]:
             COALESCE(i.sector, o.sector, i.tipo, 'Sin sector') AS sector,
             COUNT(*) AS total
         {ofertas_base_sql()}
-        WHERE {ESTADO_SQL} = 'activo'
+        WHERE {ACTIVE_OFFER_SQL}
         GROUP BY 1
         ORDER BY total DESC, sector ASC
         LIMIT 8
@@ -810,7 +821,7 @@ def get_estadisticas() -> dict[str, Any]:
                 WHERE COALESCE(o.fecha_scraped, o.detectada_en, o.actualizada_en, o.creada_en) >= NOW() - INTERVAL '7 days'
             ) AS nuevas_semana
         {ofertas_base_sql()}
-        WHERE {ESTADO_SQL} = 'activo'
+        WHERE {ACTIVE_OFFER_SQL}
         GROUP BY i.id, i.nombre
         ORDER BY activas DESC, nuevas_semana DESC, nombre ASC
         LIMIT 5
@@ -861,7 +872,7 @@ def get_instituciones(
         i.region,
         i.url_empleo,
         i.plataforma_empleo,
-        COUNT(o.id) FILTER (WHERE {ESTADO_SQL} = 'activo') AS activas
+        COUNT(o.id) FILTER (WHERE {ACTIVE_OFFER_SQL}) AS activas
     FROM instituciones i
     LEFT JOIN ofertas o ON o.institucion_id = i.id
     WHERE {where_sql}
@@ -1291,7 +1302,7 @@ def api_reindexar_meili() -> dict[str, Any]:
         f"""
         {ofertas_select_sql()}
         {ofertas_base_sql()}
-        WHERE {ESTADO_SQL} = 'activo'
+        WHERE {ACTIVE_OFFER_SQL}
         ORDER BY o.id
         LIMIT 10000
         """
@@ -1327,7 +1338,7 @@ def api_enviar_alertas_pendientes() -> dict[str, Any]:
     errores = 0
 
     for sub in suscripciones:
-        where_parts = [f"{ESTADO_SQL} = 'activo'"]
+        where_parts = [ACTIVE_OFFER_SQL]
         params: list[Any] = []
 
         # Only offers from last 24h
