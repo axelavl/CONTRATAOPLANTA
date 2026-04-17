@@ -3440,8 +3440,7 @@ function urlDeepLinkOferta(oferta) {
   const url = new URL(window.location.href);
   url.search = '';
   url.hash = '';
-  url.pathname = '/';
-  url.searchParams.set('oferta', String(oferta.id));
+  url.pathname = `/oferta/${oferta.id}`;
   return url.toString();
 }
 
@@ -4267,7 +4266,11 @@ restaurarFiltrosDesdeURL();
 // ── 8.b Deep-link a oferta concreta: ?oferta=ID abre el modal al cargar ──
 (function abrirOfertaDesdeURL() {
   try {
-    const id = parseInt(new URLSearchParams(window.location.search).get('oferta') || '', 10);
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = parseInt(params.get('oferta') || '', 10);
+    const fromPathMatch = window.location.pathname.match(/^\/oferta\/(\d+)(?:\/)?$/);
+    const fromPath = fromPathMatch ? parseInt(fromPathMatch[1], 10) : NaN;
+    const id = !isNaN(fromQuery) && fromQuery > 0 ? fromQuery : fromPath;
     if (!isNaN(id) && id > 0) {
       // Esperar al primer pintado para no pelear con la animación de carga.
       window.addEventListener('load', () => setTimeout(() => abrirModal(id), 200));
