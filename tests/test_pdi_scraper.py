@@ -200,6 +200,14 @@ class SlugHelpersTests(unittest.TestCase):
             )
         )
 
+    def test_slugs_no_relacionados_si_solo_comparten_mes_y_anio(self):
+        self.assertFalse(
+            _slugs_relacionados(
+                "perfil-abogado-marzo-2026",
+                "bases-medico-marzo-2026",
+            )
+        )
+
     def test_stable_offer_url_quita_query_y_fragment(self):
         self.assertEqual(
             _stable_offer_url(
@@ -343,6 +351,50 @@ class OfertaToRawTests(unittest.TestCase):
         self.assertNotEqual(
             c1.id,
             ConcursoPDI(slug="perfil-ingeniero-comercial-resolex-223").id,
+        )
+
+    def test_parse_oferta_normaliza_url_oferta_sin_querystring(self):
+        scraper = _make_scraper()
+
+        class _DummyPipeline:
+            def run(self, _raw_page):
+                return (
+                    {
+                        "job_title": "Médico Criminalista",
+                        "description": "Rol pericial.",
+                        "requirements": ["Ser chileno."],
+                        "contract_type": "Contrata",
+                        "published_at": "2026-03-03",
+                        "application_end_at": "2026-03-13",
+                        "is_expired": False,
+                    },
+                    {},
+                )
+
+        scraper.pipeline = _DummyPipeline()
+        concurso = ConcursoPDI(
+            slug="perfil-medico-criminalista-resolex-222",
+            url_perfil=(
+                "https://www.pdichile.cl/docs/default-source/cargo/"
+                "perfil-medico-criminalista-resolex-222.pdf?sfvrsn=58e48885_2"
+            ),
+            url_bases=(
+                "https://www.pdichile.cl/docs/default-source/concurso/"
+                "bases-medico-criminalista-resolex-222.pdf?sfvrsn=aa11_1"
+            ),
+            perfil_text=PDF_PERFIL_PDI,
+            bases_text=PDF_BASES_PDI,
+        )
+
+        normalized = scraper.parse_oferta({"concurso": concurso})
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        self.assertEqual(
+            normalized["url_oferta"],
+            (
+                "https://www.pdichile.cl/docs/default-source/cargo/"
+                "perfil-medico-criminalista-resolex-222.pdf"
+            ),
         )
 
 
