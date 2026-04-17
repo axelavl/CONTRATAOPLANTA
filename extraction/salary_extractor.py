@@ -51,6 +51,20 @@ class SalaryExtraction:
     validation_status: str | None = None
     trace: str | None = None
 
+    def as_tuple(self) -> tuple[float | None, str | None, str | None]:
+        """Compatibilidad retroactiva con el contrato histórico (amount, currency, raw)."""
+        return (self.amount, self.currency, self.raw)
+
+    def __iter__(self):
+        """Permite unpacking como: amount, currency, raw = extract_salary(...)."""
+        return iter(self.as_tuple())
+
+    def __eq__(self, other):
+        """Permite comparar contra tuplas históricas sin romper el nuevo formato enriquecido."""
+        if isinstance(other, tuple) and len(other) == 3:
+            return self.as_tuple() == other
+        return super().__eq__(other)
+
 
 def _window(text: str, start: int, end: int, radius: int = 80) -> str:
     lo = max(0, start - radius)
