@@ -858,7 +858,8 @@ function _limpiarPrefijosCargo(txt) {
 }
 
 function normalizarTituloOferta(cargo) {
-const sinPrefijos = _limpiarPrefijosCargo(original);
+  const original = String(cargo || '');
+  const sinPrefijos = _limpiarPrefijosCargo(original);
   if (!sinPrefijos) return '';
 
   const letras = sinPrefijos.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '');
