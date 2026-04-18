@@ -40,8 +40,13 @@ from scrapers.frequency_policy import should_evaluate_now
 from scrapers.empleos_publicos import EmpleosPublicosScraper
 from scrapers.evaluation.audit_store import AuditStore
 from scrapers.evaluation.catalog_loader import CatalogLoader
-from scrapers.evaluation.models import Decision, ExtractorKind
+from scrapers.evaluation.models import (
+    Availability, Decision, ExtractorKind,
+    JobRelevance, OpenCallsStatus, PageType,
+    RetryPolicy, ValidityStatus, EvaluationResult,
+)
 from scrapers.evaluation.source_evaluator import SourceEvaluator
+from scrapers.source_status import ScraperKind, classify_source
 from scrapers.plataformas.buk import BukScraper
 from scrapers.plataformas.carabineros import CarabinerosScraper
 from scrapers.plataformas.ffaa import FfaaScraper
@@ -67,6 +72,76 @@ SUPPORTED_RUNTIME_EXTRACTORS = {
     ExtractorKind.SCRAPER_GENERIC_FALLBACK,
     ExtractorKind.SCRAPER_PLAYWRIGHT,
 }
+
+# Mapa de ScraperKind (override) → (ExtractorKind, profile_name) para bypass del gatekeeper.
+# Cuando source_overrides.json declara explícitamente uno de estos kinds, se omite la
+# evaluación HTTP (que puede fallar por WAF, JS-render, etc.) y se despacha directamente.
+_KIND_BYPASS: dict[str, tuple[ExtractorKind, str]] = {
+    ScraperKind.CUSTOM_TRABAJANDO.value: (ExtractorKind.SCRAPER_EXTERNAL_ATS, "ats_trabajando"),
+    ScraperKind.CUSTOM_HIRINGROOM.value:  (ExtractorKind.SCRAPER_EXTERNAL_ATS,  "ats_hiringroom"),
+    ScraperKind.CUSTOM_BUK.value:         (ExtractorKind.SCRAPER_EXTERNAL_ATS,  "ats_buk"),
+    ScraperKind.CUSTOM_FFAA.value:        (ExtractorKind.SCRAPER_CUSTOM_DETAIL, "ffaa_waf"),
+}
+# custom_policia depende del ID: 161=Carabineros, 162=PDI — se resuelve en _bypass_evaluation.
+_POLICIA_PROFILES = {
+    161: (ExtractorKind.SCRAPER_PDF_JOBS, "carabineros_pdf_first"),
+    162: (ExtractorKind.SCRAPER_PDF_JOBS, "pdi_pdf_first"),
+}
+
+
+def _bypass_evaluation(source: dict[str, Any]) -> EvaluationResult | None:
+    """
+    Si source_overrides.json declara un kind personalizado conocido, devuelve un
+    EvaluationResult forzado con Decision.EXTRACT sin realizar petición HTTP.
+    Retorna None si no aplica bypass (el gatekeeper debe evaluarse normalmente).
+    """
+    try:
+        decision = classify_source(source)
+    except Exception:
+        return None
+
+    kind_val = decision.kind.value if decision.kind else ""
+    source_url = str(source.get("url_empleo") or source.get("sitio_web") or "")
+
+    # Sólo aplicar bypass si la fuente está explícitamente en source_overrides.json
+    # (status=active) y tiene un kind de bypass conocido.
+    if decision.status.value not in ("active",):
+        return None
+
+    # Resolver extractor y profile según el kind
+    if kind_val == ScraperKind.CUSTOM_POLICIA.value:
+        inst_id = source.get("id")
+        pair = _POLICIA_PROFILES.get(inst_id)
+        if pair is None:
+            return None
+        extractor, profile_name = pair
+    elif kind_val in _KIND_BYPASS:
+        extractor, profile_name = _KIND_BYPASS[kind_val]
+    else:
+        return None
+
+    log.info(
+        "Bypass gatekeeper para %s (id=%s, kind=%s) → %s / %s",
+        source.get("nombre", "?"), source.get("id"), kind_val, extractor.value, profile_name,
+    )
+    return EvaluationResult(
+        source_url=source_url,
+        availability=Availability.OK,
+        http_status=200,
+        page_type=PageType.LISTING_PAGE,
+        job_relevance=JobRelevance.JOB_LIKE,
+        open_calls_status=OpenCallsStatus.UNKNOWN_STATUS,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        recommended_extractor=extractor,
+        decision=Decision.EXTRACT,
+        reason_code=None,
+        reason_detail=f"Bypass por kind={kind_val} en source_overrides.json",
+        confidence=1.0,
+        retry_policy=RetryPolicy.HIGH,
+        signals_json={"bypass": True, "kind": kind_val},
+        evaluated_at=datetime.now(tz=timezone.utc),
+        profile_name=profile_name,
+    )
 
 
 @dataclass(slots=True)
@@ -229,6 +304,11 @@ async def _evaluate_sources(
         async def _evaluate_one(source: dict[str, Any]) -> RuntimeSource:
             async with sem:
                 source_id = _resolve_fuente_id(source, type("EmptyEval", (), {"recommended_extractor": None})(), fuentes_index)
+                # Bypass del gatekeeper para kinds con override explícito en source_overrides.json
+                bypass = _bypass_evaluation(source)
+                if bypass is not None:
+                    fuente_id = _resolve_fuente_id(source, bypass, fuentes_index)
+                    return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=bypass)
                 historical_noise_ratio = 0.0
                 try:
                     with conexion() as conn:
