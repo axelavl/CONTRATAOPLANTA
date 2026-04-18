@@ -194,6 +194,16 @@ nav {
               radial-gradient(ellipse 60% 60% at 0% 100%, rgba(232,168,32,0.08) 0%, transparent 50%);
   pointer-events: none;
 }
+.hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(10,46,110,0) 0%, rgba(10,46,110,.20) 55%, var(--bg) 100%);
+  pointer-events: none;
+}
 .hero-inner {
   max-width: 1200px; margin: 0 auto;
   position: relative;
@@ -402,6 +412,16 @@ nav {
   border-radius: 18px 18px 0 0;
   background: linear-gradient(180deg, rgba(246,248,252,0.96) 0%, var(--bg) 56px);
 }
+.resultados-shell {
+  background: var(--blanco);
+  border: 1px solid rgba(214, 211, 204, 0.85);
+  border-radius: var(--r-l);
+  box-shadow: var(--sombra);
+  padding: 14px;
+  margin-top: -24px;
+  position: relative;
+  z-index: 2;
+}
 /* Previene que columnas de grid expandan el contenedor */
 .main > * { min-width: 0; }
 .sidebar { min-width: 0; overflow: hidden; }
@@ -495,6 +515,20 @@ nav {
   border-color: #86EFAC; color: #166534; background: var(--verde-l);
 }
 .btn-compartir-busqueda { color: var(--azul); }
+.share-btn--copy-inline {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+  background: var(--bg2);
+  color: var(--texto2);
+  font-size: 14px;
+}
+.share-btn--copy-inline.is-copied {
+  background: #DCFCE7;
+  border-color: #86EFAC;
+  color: #166534;
+}
 
 .popover-share {
   position: relative;
@@ -1451,7 +1485,7 @@ footer {
   background: var(--verde); color: white; border-color: var(--verde);
 }
 
-/* ═══ Visor interno de bases (PDF) ═════════════════════════════════════ */
+/* ═══ Acciones de bases oficiales (sin visor embebido) ══════════════════ */
 .bases-viewer-overlay {
   position: fixed; inset: 0;
   background: rgba(10,46,110,.65);
@@ -1461,8 +1495,7 @@ footer {
 }
 .bases-viewer-overlay[hidden] { display: none; }
 .bases-viewer-panel {
-  width: min(1200px, 100%);
-  height: min(92vh, 100dvh - 16px);
+  width: min(560px, 100%);
   background: var(--blanco);
   border-radius: var(--r-l);
   box-shadow: var(--sombra-m);
@@ -1496,49 +1529,20 @@ footer {
   color: white;
   cursor: pointer;
 }
-.bases-viewer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--bg2);
-}
-.bases-viewer-status {
-  font-size: 12px;
-  color: var(--texto2);
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--bg2);
-}
 .bases-viewer-content {
-  position: relative;
-  flex: 1;
-  background: var(--bg2);
-}
-.bases-viewer-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #EEF2F7;
-}
-.bases-viewer-frame.is-hidden { display: none; }
-.bases-viewer-fallback {
-  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #F8FAFC, #EEF2F7);
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 12px;
   padding: 20px;
-  background: linear-gradient(180deg, #F8FAFC, #EEF2F7);
-}
-.bases-fallback-title {
-  color: var(--azul);
-  font-size: 18px;
-  font-weight: 700;
 }
 .bases-fallback-copy {
   color: var(--texto2);
   font-size: 14px;
-  max-width: 62ch;
+  line-height: 1.5;
+}
+.bases-viewer-content--actions .bases-fallback-actions {
+  margin-top: 4px;
 }
 .bases-fallback-actions {
   display: flex;
@@ -1549,20 +1553,17 @@ footer {
   .bases-viewer-overlay { padding: 0; }
   .bases-viewer-panel {
     width: 100%;
-    height: 100dvh;
+    max-width: 100%;
     border-radius: 0;
   }
   .bases-viewer-header { padding: 12px; }
   .bases-viewer-header h3 { font-size: 16px; }
-  .bases-viewer-actions {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding: 10px 12px;
+  .bases-viewer-content { padding: 16px 14px; }
+  .bases-fallback-actions > * {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
   }
-  .bases-viewer-actions .btn-modal-sec { flex-shrink: 0; height: 42px; font-size: 13px; }
-  .bases-viewer-status { padding: 8px 12px; }
-  .bases-viewer-fallback { padding: 16px 14px; }
-  .bases-fallback-title { font-size: 17px; }
 }
 
 /* Popover QR */
