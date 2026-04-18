@@ -23,9 +23,12 @@ except ImportError:
     import pg8000.dbapi as _pg8000  # type: ignore[import]
     _PG_DRIVER = "pg8000"
 
-from fastapi import FastAPI, HTTPException, Query, Request
+import secrets
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response, RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
 # Para poder importar scrapers.source_status desde la API, agregamos la raíz del
@@ -105,6 +108,29 @@ OFFER_STATUS_SQL = (
 )
 ACTIVE_OFFER_SQL = f"{OFFER_STATUS_SQL} IN ('active', 'closing_today')"
 SITE_URL = (os.getenv("SITE_URL", "https://contrataoplanta.cl") or "https://contrataoplanta.cl").rstrip("/")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "estadoemplea2026")
+_http_basic = HTTPBasic(auto_error=False)
+
+
+def _verify_admin(credentials: HTTPBasicCredentials | None = Depends(_http_basic)) -> str:
+    """Verifica HTTP Basic Auth para endpoints /api/admin/*."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Autenticación requerida",
+            headers={"WWW-Authenticate": 'Basic realm="Admin"'},
+        )
+    pw_ok = secrets.compare_digest(
+        credentials.password.encode("utf-8"),
+        ADMIN_PASSWORD.encode("utf-8"),
+    )
+    if not pw_ok:
+        raise HTTPException(
+            status_code=401,
+            detail="Contraseña incorrecta",
+            headers={"WWW-Authenticate": 'Basic realm="Admin"'},
+        )
+    return credentials.username
 WEB_INDEX_PATH = _PROJECT_ROOT / "web" / "index.html"
 DEFAULT_OG_IMAGE = f"{SITE_URL}/og-default.jpg"
 STATUS_LEGACY_MAP = {
@@ -1642,6 +1668,306 @@ def web_root(request: Request, oferta: int | None = Query(None, ge=1)) -> Respon
         status_code=200,
         headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=600"},
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  ADMIN API — protegida con HTTP Basic Auth (ADMIN_PASSWORD env var)
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/admin/stats", tags=["admin"])
+def admin_stats(_user: str = Depends(_verify_admin)) -> dict[str, Any]:
+    """Métricas completas para el dashboard de administración."""
+    totales = execute_fetch_one("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE activa = TRUE)  AS activas,
+            COUNT(*) FILTER (WHERE activa = FALSE) AS inactivas,
+            COUNT(*) FILTER (WHERE url_oferta_valida = FALSE) AS urls_rotas,
+            COUNT(*) FILTER (WHERE url_oferta_valida IS NULL)  AS urls_sin_validar,
+            COUNT(*) FILTER (
+                WHERE COALESCE(fecha_scraped, detectada_en, actualizada_en, creada_en)
+                      >= NOW() - INTERVAL '24 hours'
+            ) AS nuevas_24h,
+            COUNT(*) FILTER (
+                WHERE fecha_cierre IS NOT NULL AND fecha_cierre < CURRENT_DATE AND activa = TRUE
+            ) AS activas_vencidas
+        FROM ofertas
+    """) or {}
+
+    por_sector = execute_fetch_all(f"""
+        SELECT COALESCE(i.sector, 'Sin sector') AS sector, COUNT(*) AS total
+        {ofertas_base_sql()}
+        WHERE {ACTIVE_OFFER_SQL}
+        GROUP BY 1 ORDER BY 2 DESC LIMIT 10
+    """)
+
+    scraper_runs = execute_fetch_all("""
+        SELECT id, started_at, status, total_instituciones, total_evaluadas,
+               total_extract, total_skip, total_nuevas, total_actualizadas,
+               total_errores, tasa_precision, duracion_segundos
+        FROM scraper_runs
+        ORDER BY started_at DESC NULLS LAST
+        LIMIT 10
+    """)
+
+    eval_resumen = execute_fetch_one("""
+        SELECT
+            COUNT(DISTINCT institucion_id) AS instituciones_evaluadas,
+            COUNT(*) FILTER (WHERE decision = 'extract')       AS extract,
+            COUNT(*) FILTER (WHERE decision = 'skip')          AS skip,
+            COUNT(*) FILTER (WHERE decision = 'manual_review') AS manual_review,
+            MAX(evaluated_at) AS ultima_evaluacion
+        FROM source_evaluations
+    """) or {}
+
+    url_validez = execute_fetch_one("""
+        SELECT
+            COUNT(*) FILTER (WHERE url_oferta_valida = TRUE)  AS validas,
+            COUNT(*) FILTER (WHERE url_oferta_valida = FALSE) AS rotas,
+            COUNT(*) FILTER (WHERE url_oferta_valida IS NULL) AS sin_validar,
+            MAX(url_valida_chequeada_en) AS ultimo_chequeo
+        FROM ofertas WHERE activa = TRUE
+    """) or {}
+
+    return {
+        "totales": totales,
+        "por_sector": por_sector,
+        "scraper_runs": scraper_runs,
+        "evaluaciones": eval_resumen,
+        "url_validez": url_validez,
+    }
+
+
+@app.get("/api/admin/ofertas", tags=["admin"])
+def admin_ofertas(
+    pagina: int = Query(1, ge=1),
+    por_pagina: int = Query(50, ge=1, le=200),
+    activa: str | None = Query(None, description="true/false/all"),
+    url_rota: bool | None = Query(None),
+    sector: str | None = Query(None),
+    region: str | None = Query(None),
+    q: str | None = Query(None),
+    orden: str = Query("reciente", description="reciente|cierre|cargo"),
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """Lista paginada de ofertas con filtros para revisión."""
+    conditions = []
+    params: list[Any] = []
+
+    if activa == "true":
+        conditions.append("o.activa = TRUE")
+    elif activa == "false":
+        conditions.append("o.activa = FALSE")
+
+    if url_rota is True:
+        conditions.append("o.url_oferta_valida = FALSE")
+    elif url_rota is False:
+        conditions.append("(o.url_oferta_valida = TRUE OR o.url_oferta_valida IS NULL)")
+
+    if sector:
+        conditions.append("i.sector = %s")
+        params.append(sector)
+
+    if region:
+        conditions.append("o.region ILIKE %s")
+        params.append(f"%{region}%")
+
+    if q:
+        conditions.append("(o.cargo ILIKE %s OR o.institucion_nombre ILIKE %s)")
+        params.extend([f"%{q}%", f"%{q}%"])
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    order_sql = {
+        "reciente": "COALESCE(o.fecha_scraped, o.detectada_en, o.actualizada_en) DESC NULLS LAST",
+        "cierre": "o.fecha_cierre ASC NULLS LAST",
+        "cargo": "o.cargo ASC",
+    }.get(orden, "COALESCE(o.fecha_scraped, o.detectada_en, o.actualizada_en) DESC NULLS LAST")
+
+    offset = (pagina - 1) * por_pagina
+
+    sql = f"""
+        SELECT
+            o.id, o.cargo, o.institucion_nombre, o.region, o.sector,
+            COALESCE(i.sector, o.sector, 'Sin sector') AS sector_real,
+            o.tipo_contrato, o.fecha_cierre, o.fecha_publicacion,
+            o.activa, o.estado, o.url_oferta, o.url_oferta_valida,
+            o.url_bases, o.url_bases_valida,
+            o.renta_bruta_min, o.renta_bruta_max,
+            o.fecha_scraped, o.detectada_en,
+            o.institucion_id, i.sector AS inst_sector
+        {ofertas_base_sql()}
+        {where_clause}
+        ORDER BY {order_sql}
+        LIMIT %s OFFSET %s
+    """
+    count_sql = f"""
+        SELECT COUNT(*) AS total
+        {ofertas_base_sql()}
+        {where_clause}
+    """
+
+    rows = execute_fetch_all(sql, params + [por_pagina, offset])
+    total_row = execute_fetch_one(count_sql, params) or {}
+    total = int(total_row.get("total") or 0)
+
+    return {
+        "total": total,
+        "pagina": pagina,
+        "por_pagina": por_pagina,
+        "paginas": math.ceil(total / por_pagina) if total else 0,
+        "ofertas": rows,
+    }
+
+
+@app.post("/api/admin/ofertas/{oferta_id}/toggle-activa", tags=["admin"])
+def admin_toggle_activa(
+    oferta_id: int,
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """Activa o desactiva una oferta."""
+    with get_cursor() as (conn, cur):
+        cur.execute("SELECT activa FROM ofertas WHERE id = %s", [oferta_id])
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Oferta no encontrada")
+        nuevo_estado = not (row["activa"] if isinstance(row, dict) else row[0])
+        cur.execute(
+            "UPDATE ofertas SET activa = %s, actualizada_en = NOW() WHERE id = %s",
+            [nuevo_estado, oferta_id],
+        )
+        conn.commit()
+    return {"id": oferta_id, "activa": nuevo_estado}
+
+
+@app.put("/api/admin/ofertas/{oferta_id}", tags=["admin"])
+def admin_editar_oferta(
+    oferta_id: int,
+    payload: dict[str, Any],
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """Edita campos básicos de una oferta (cargo, descripcion, fecha_cierre, activa)."""
+    CAMPOS_PERMITIDOS = {"cargo", "descripcion", "fecha_cierre", "activa", "estado", "region", "tipo_contrato"}
+    updates = {k: v for k, v in payload.items() if k in CAMPOS_PERMITIDOS}
+    if not updates:
+        raise HTTPException(400, "Sin campos válidos para actualizar")
+
+    set_clause = ", ".join(f"{col} = %s" for col in updates)
+    vals = list(updates.values()) + [oferta_id]
+
+    with get_cursor() as (conn, cur):
+        cur.execute(
+            f"UPDATE ofertas SET {set_clause}, actualizada_en = NOW() WHERE id = %s",
+            vals,
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Oferta no encontrada")
+        conn.commit()
+
+    return {"id": oferta_id, "updated": list(updates.keys())}
+
+
+@app.get("/api/admin/scraper-runs", tags=["admin"])
+def admin_scraper_runs(
+    limit: int = Query(20, ge=1, le=100),
+    _user: str = Depends(_verify_admin),
+) -> list[dict[str, Any]]:
+    """Historial de corridas del scraper con detalle."""
+    return execute_fetch_all("""
+        SELECT id, started_at, finished_at, status, run_mode,
+               total_instituciones, total_evaluadas, total_extract, total_skip,
+               total_nuevas, total_actualizadas, total_vencidas, total_descartadas,
+               total_errores, tasa_precision, duracion_segundos, notas
+        FROM scraper_runs
+        ORDER BY started_at DESC NULLS LAST
+        LIMIT %s
+    """, [limit])
+
+
+@app.get("/api/admin/evaluaciones", tags=["admin"])
+def admin_evaluaciones(
+    decision: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    _user: str = Depends(_verify_admin),
+) -> list[dict[str, Any]]:
+    """Última evaluación por institución (gatekeeper)."""
+    where = "WHERE e.decision = %s" if decision else ""
+    params = [decision] if decision else []
+    params.append(limit)
+    return execute_fetch_all(f"""
+        SELECT DISTINCT ON (e.institucion_id)
+            e.institucion_id,
+            COALESCE(i.nombre, e.source_url) AS nombre,
+            i.sector,
+            e.source_url,
+            e.decision,
+            e.recommended_extractor,
+            e.open_calls_status,
+            e.retry_policy,
+            e.confidence,
+            e.reason_detail,
+            e.availability,
+            e.http_status,
+            e.evaluated_at
+        FROM source_evaluations e
+        LEFT JOIN instituciones i ON i.id = e.institucion_id
+        {where}
+        ORDER BY e.institucion_id, e.evaluated_at DESC
+        LIMIT %s
+    """, params)
+
+
+@app.get("/api/admin/fuentes", tags=["admin"])
+def admin_fuentes(
+    con_ofertas: bool | None = Query(None),
+    sector: str | None = Query(None),
+    _user: str = Depends(_verify_admin),
+) -> list[dict[str, Any]]:
+    """Instituciones con su última evaluación y conteo de ofertas activas."""
+    conditions = []
+    params: list[Any] = []
+    if con_ofertas is True:
+        conditions.append("oferta_count > 0")
+    elif con_ofertas is False:
+        conditions.append("oferta_count = 0")
+    if sector:
+        conditions.append("i.sector = %s")
+        params.append(sector)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    return execute_fetch_all(f"""
+        SELECT
+            i.id, i.nombre, i.sigla, i.sector, i.region,
+            i.url_empleo, i.plataforma_empleo,
+            COALESCE(ev.decision, 'sin_evaluar') AS ultima_decision,
+            ev.recommended_extractor,
+            ev.retry_policy,
+            ev.confidence,
+            ev.evaluated_at AS ultima_evaluacion,
+            ev.availability,
+            ev.http_status,
+            oferta_count
+        FROM instituciones i
+        LEFT JOIN LATERAL (
+            SELECT decision, recommended_extractor, retry_policy, confidence,
+                   evaluated_at, availability, http_status
+            FROM source_evaluations
+            WHERE institucion_id = i.id
+            ORDER BY evaluated_at DESC
+            LIMIT 1
+        ) ev ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*) AS oferta_count
+            FROM ofertas o
+            WHERE o.institucion_id = i.id AND o.activa = TRUE
+        ) oc ON TRUE
+        {where}
+        ORDER BY oferta_count DESC NULLS LAST, i.nombre ASC
+    """, params)
+
+
+# ── Fin endpoints admin ───────────────────────────────────────────────────────
 
 
 @app.get("/api", include_in_schema=False)
