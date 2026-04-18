@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+from urllib.parse import urlparse
+
+from .models import ExtractorKind, PageType, RetryPolicy, SourceProfile
+
+
+PROFILES: tuple[SourceProfile, ...] = (
+    SourceProfile(
+        name="empleos_publicos",
+        domains=("empleospublicos.cl",),
+        platform_markers=("empleospublicos",),
+        trusted_job_source=True,
+        page_type_priors={PageType.LISTING_PAGE: 0.8, PageType.DETAIL_PAGE: 0.9},
+        retry_policy=RetryPolicy.CRITICAL,
+        extractor_hint=ExtractorKind.SCRAPER_EMPLEOS_PUBLICOS,
+        notes="Fuente centralizada y confiable del Servicio Civil.",
+    ),
+    SourceProfile(
+        name="carabineros_pdf_first",
+        domains=("postulaciones.carabineros.cl", "carabineros.cl"),
+        institution_ids=(161,),
+        candidate_urls=(
+            "https://postulaciones.carabineros.cl/",
+            "https://www.carabineros.cl/transparencia/concursos/",
+        ),
+        warmup_required=True,
+        supports_pdf_enrichment=True,
+        page_type_priors={PageType.DETAIL_PAGE: 0.8, PageType.DOCUMENT_PAGE: 0.95},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_PDF_JOBS,
+        notes="Usa descriptor y perfil PDF como fuente de verdad.",
+    ),
+    SourceProfile(
+        name="pdi_pdf_first",
+        domains=("pdichile.cl", "postulaciones.investigaciones.cl"),
+        institution_ids=(162,),
+        candidate_urls=(
+            "https://www.pdichile.cl/institucion/concursos-publicos/portada",
+            "https://postulaciones.investigaciones.cl/",
+        ),
+        warmup_required=True,
+        supports_pdf_enrichment=True,
+        page_type_priors={PageType.DETAIL_PAGE: 0.75, PageType.DOCUMENT_PAGE: 0.95},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_PDF_JOBS,
+        notes="PDFs de perfil y bases pesan mas que el HTML.",
+    ),
+    SourceProfile(
+        name="policia_waf",
+        domains=("postulaciones.carabineros.cl", "postulaciones.investigaciones.cl"),
+        warmup_required=True,
+        supports_pdf_enrichment=True,
+        page_type_priors={PageType.DETAIL_PAGE: 0.7},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_CUSTOM_DETAIL,
+        notes="Portales policiales con warmup y senales de WAF.",
+    ),
+    SourceProfile(
+        name="ffaa_waf",
+        domains=("ingreso.ejercito.cl", "admisionarmada.cl", "ejercito.cl", "armada.cl"),
+        institution_ids=(157, 158),
+        warmup_required=True,
+        page_type_priors={PageType.LISTING_PAGE: 0.7, PageType.DETAIL_PAGE: 0.75},
+        retry_policy=RetryPolicy.MEDIUM,
+        extractor_hint=ExtractorKind.SCRAPER_CUSTOM_DETAIL,
+        notes="Portales militares con rutas candidatas especificas y warmup.",
+    ),
+    SourceProfile(
+        name="ats_trabajando",
+        domains=("trabajando.cl",),
+        platform_markers=("trabajando.cl", "trabajando cl"),
+        page_type_priors={PageType.ATS_EXTERNAL: 0.95},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_EXTERNAL_ATS,
+        notes="Portal ATS conocido: Trabajando.cl.",
+    ),
+    SourceProfile(
+        name="ats_hiringroom",
+        domains=("hiringroom.com", "hiringroomcampus.com"),
+        platform_markers=("hiringroom",),
+        page_type_priors={PageType.ATS_EXTERNAL: 0.95},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_EXTERNAL_ATS,
+        notes="Portal ATS conocido: HiringRoom.",
+    ),
+    SourceProfile(
+        name="ats_buk",
+        domains=("buk.cl",),
+        platform_markers=("buk",),
+        page_type_priors={PageType.ATS_EXTERNAL: 0.95},
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_EXTERNAL_ATS,
+        notes="Portal ATS conocido: Buk.",
+    ),
+    SourceProfile(
+        name="playwright_js",
+        institution_ids=(145, 275, 280),
+        domains=("bcentral.cl", "codelco.com", "tvn.cl"),
+        supports_playwright=True,
+        retry_policy=RetryPolicy.HIGH,
+        extractor_hint=ExtractorKind.SCRAPER_PLAYWRIGHT,
+        notes="Fuentes JS intensivas como Banco Central, Codelco y TVN.",
+    ),
+    SourceProfile(
+        name="wordpress",
+        platform_markers=("wordpress", "wp-json", "wp-content"),
+        page_type_priors={PageType.WORDPRESS_POST: 0.9, PageType.WORDPRESS_LISTING: 0.85},
+        retry_policy=RetryPolicy.LOW,
+        extractor_hint=ExtractorKind.SCRAPER_WORDPRESS_JOBS,
+        notes="WordPress municipal o institucional con REST API y fallback HTML.",
+    ),
+    SourceProfile(
+        name="generic_site",
+        page_type_priors={PageType.GENERAL_PAGE: 0.5, PageType.LISTING_PAGE: 0.5},
+        retry_policy=RetryPolicy.MEDIUM,
+        extractor_hint=ExtractorKind.SCRAPER_GENERIC_FALLBACK,
+        notes="Fallback defensivo para sitios propios y estructuras no clasificadas.",
+    ),
+)
+
+
+def match_source_profile(source: dict[str, object]) -> SourceProfile:
+    inst_id = source.get("id")
+    platform = str(source.get("plataforma_empleo") or "").lower()
+    url_candidates = [str(source.get("url_empleo") or ""), str(source.get("sitio_web") or "")]
+    host_candidates = [urlparse(url).netloc.lower() for url in url_candidates if url]
+
+    for profile in PROFILES:
+        if inst_id in profile.institution_ids:
+            return profile
+    for profile in PROFILES:
+        if any(domain and domain in host for domain in profile.domains for host in host_candidates):
+            return profile
+        if any(marker and marker in platform for marker in profile.platform_markers):
+            return profile
+    return next(profile for profile in PROFILES if profile.name == "generic_site")
