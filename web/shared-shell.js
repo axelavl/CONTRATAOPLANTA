@@ -19,31 +19,23 @@
       var favs = JSON.parse(localStorage.getItem('fav_contrataoplanta') || '[]');
       if (!favs.length) return;
       var navFav = root.querySelector('#nav-favoritos');
-      if (navFav) navFav.textContent = '♥ Favoritos (' + favs.length + ')';
+      if (navFav) navFav.textContent = '♥ Mis favoritos (' + favs.length + ')';
     } catch (e) {}
   }
 
+
+
   function ensureMobileNavScript() {
     if (window.__mobileNavInitialized || document.getElementById('nav-mobile-script')) return;
+
     var alreadyLoaded = Array.prototype.some.call(document.scripts, function (s) {
       return /(^|\/)nav-mobile\.js($|[?#])/.test(s.getAttribute('src') || '');
     });
     if (alreadyLoaded) return;
+
     var script = document.createElement('script');
     script.src = 'nav-mobile.js';
     script.id = 'nav-mobile-script';
-    document.body.appendChild(script);
-  }
-
-  function ensureThemeToggleScript() {
-    if (document.getElementById('theme-toggle-script')) return;
-    var alreadyLoaded = Array.prototype.some.call(document.scripts, function (s) {
-      return /(^|\/)theme-toggle\.js($|[?#])/.test(s.getAttribute('src') || '');
-    });
-    if (alreadyLoaded) return;
-    var script = document.createElement('script');
-    script.src = 'theme-toggle.js';
-    script.id = 'theme-toggle-script';
     document.body.appendChild(script);
   }
 
@@ -60,18 +52,13 @@
       .catch(function () { return false; });
   }
 
-  // Cargar ribbon (freshness bar) primero, después header, después footer
-  loadPartial('site-ribbon', 'partials/ribbon.html')
-    .then(function () {
-      return loadPartial('site-header', 'partials/header.html');
-    })
-    .then(function (headerOk) {
-      if (headerOk) {
+  loadPartial('site-header', 'partials/header.html')
+    .then(function (ok) {
+      if (ok) {
         applyActiveNav(document);
         updateFavCount(document);
       }
       ensureMobileNavScript();
-      ensureThemeToggleScript();
       return loadPartial('site-footer', 'partials/footer.html');
     })
     .then(function () {

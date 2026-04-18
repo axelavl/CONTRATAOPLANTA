@@ -1,8 +1,10 @@
 /* ══════════════════════════════════════════════════════════════════════
-   design-tokens.css — Sistema de tokens contrata o planta .cl
-   v2 (redesign) · Mantiene los nombres anteriores (--azul, --cielo,
-   --acento, etc.) como aliases para no romper CSS existente, y añade
-   la nueva paleta canónica (--navy, --gold, etc.) + soporte dark mode.
+   design-tokens.css — v2 (redesign)
+   Los tokens legacy (--azul, --cielo, --acento, --texto, etc.) tienen
+   valores hex directos para pasar el check de contraste AA de
+   scripts/qa/check_accessibility_basics.py. Los tokens nuevos de la
+   paleta canónica (--navy, --gold, etc.) son aliases que apuntan a los
+   legacy — ambos nombres funcionan para código nuevo y existente.
    ══════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -10,91 +12,111 @@
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
 
-  /* ── NUEVA paleta canónica · modo claro ──────────────────────────── */
+  /* ── PALETA LEGACY (valores hex directos) ────────────────────────── */
+  --azul: #142E6B;       /* navy profundo para ribbon y footer */
+  --azul-m: #254BA0;     /* navy vivo — CTAs, tabs activos */
+  --cielo: #254BA0;      /* unificado con azul-m */
+  --cielo-l: #E1E8F6;    /* fondo sutil con matiz azul */
+
+  --acento: #C88724;
+  --acento-l: #FBE4C0;
+
   --bg: #FDFCF8;
-  --bg-subtle: #F3F0E6;
-  --bg-deeper: #EBE7D9;
-  --surface: #FFFFFF;
-  --surface-hover: #FBF9F3;
-  --border: #E5E1D2;
-  --border-soft: #EEEADC;
-  --border-strong: #D1CBB8;
+  --bg2: #F3F0E6;
+  --borde: #E5E1D2;
+  --blanco: #FFFFFF;
 
-  --navy-deep: #142E6B;      /* ribbon, footer */
-  --navy: #254BA0;           /* primario — CTAs, tabs, avatares */
-  --navy-bright: #2E58B5;    /* hover states */
-  --navy-80: #3057AA;
-  --navy-60: #5570BD;
-  --navy-ink: #0B1E48;       /* títulos */
-  --navy-tint: #E1E8F6;      /* fondo chips info, avatares */
+  --texto: #18202F;
+  --texto2: #4B5167;
+  --texto3: #747B91;
 
-  --gold: #C88724;
-  --gold-soft: #E5A946;
-  --gold-brilliant: #F2C26A; /* para texto sobre navy */
-  --gold-dim: #A66E1B;       /* eyebrow, detalles sutiles */
-  --gold-bg: #FBE4C0;
-  --gold-ink: #5C3A10;
+  --verde: #2F6E4E;
+  --verde-l: #DAEADE;
+  --naran: #C87A0C;
+  --naran-l: #FBE4BE;
+  --rojo: #B23B24;
+  --rojo-l: #F6DDD5;
 
-  --sage: #2F6E4E;
-  --sage-soft: #DAEADE;
-  --terra: #B23B24;          /* urgencia crítica (cierra mañana) */
-  --terra-soft: #F6DDD5;
-  --amber: #C87A0C;          /* urgencia media (2-3 días) */
-  --amber-soft: #FBE4BE;
-
-  --text: #18202F;
-  --text-80: #2E3445;
-  --text-60: #4B5167;
-  --text-40: #747B91;
-  --text-muted: #8E94A6;
-
-  --shadow-sm: 0 1px 2px rgba(14, 32, 70, 0.04);
-  --shadow: 0 1px 2px rgba(14, 32, 70, 0.04), 0 12px 28px rgba(14, 32, 70, 0.07);
-  --shadow-strong: 0 24px 48px rgba(14, 32, 70, 0.14);
-
-  /* Logo tokens — facilitan overrides por tema */
-  --logo-bg: var(--navy);
-  --logo-fg: var(--gold-brilliant);
-
-  /* ── ALIASES legacy · CSS existente sigue funcionando ────────────── */
-  --azul: var(--navy-deep);       /* era #0A2E6E */
-  --azul-m: var(--navy);          /* era #1557C0 */
-  --cielo: var(--navy);           /* era #1A6BCC */
-  --cielo-l: var(--navy-tint);    /* era #D6E6F8 */
-  --acento: var(--gold);          /* era #E8A820 */
-  --acento-l: var(--gold-bg);     /* era #FFF4D6 */
-  --bg2: var(--bg-subtle);        /* era #EDECEA */
-  --borde: var(--border);         /* era #D9D7CF */
-  --blanco: var(--surface);       /* era #FAFAF8 */
-  --texto: var(--text);           /* era #111827 */
-  --texto2: var(--text-60);       /* era #4B5563 */
-  --texto3: var(--text-40);       /* era #9CA3AF */
-  --verde: var(--sage);           /* era #16A34A */
-  --verde-l: var(--sage-soft);    /* era #DCFCE7 */
-  --naran: var(--amber);          /* era #D97706 */
-  --naran-l: var(--amber-soft);   /* era #FEF3C7 */
-  --rojo: var(--terra);           /* era #DC2626 */
-  --rojo-l: var(--terra-soft);    /* era #FEE2E2 */
-  --sombra: var(--shadow);
+  --sombra: 0 1px 2px rgba(14, 32, 70, 0.04), 0 12px 28px rgba(14, 32, 70, 0.07);
   --r: 10px;
   --r-l: 16px;
   --radius: 12px;
+
+  /* ── PALETA NUEVA (aliases + extensiones) ────────────────────────── */
+  --navy-deep: var(--azul);
+  --navy: var(--cielo);
+  --navy-bright: #2E58B5;
+  --navy-80: #3057AA;
+  --navy-60: #5570BD;
+  --navy-ink: #0B1E48;
+  --navy-tint: var(--cielo-l);
+
+  --gold: var(--acento);
+  --gold-soft: #E5A946;
+  --gold-brilliant: #F2C26A;
+  --gold-dim: #A66E1B;
+  --gold-bg: var(--acento-l);
+  --gold-ink: #5C3A10;
+
+  --sage: var(--verde);
+  --sage-soft: var(--verde-l);
+  --terra: var(--rojo);
+  --terra-soft: var(--rojo-l);
+  --amber: var(--naran);
+  --amber-soft: var(--naran-l);
+
+  --bg-subtle: var(--bg2);
+  --bg-deeper: #EBE7D9;
+  --surface: var(--blanco);
+  --surface-hover: #FBF9F3;
+  --border: var(--borde);
+  --border-soft: #EEEADC;
+  --border-strong: #D1CBB8;
+
+  --text: var(--texto);
+  --text-80: #2E3445;
+  --text-60: var(--texto2);
+  --text-40: var(--texto3);
+  --text-muted: #8E94A6;
+
+  --shadow-sm: 0 1px 2px rgba(14, 32, 70, 0.04);
+  --shadow: var(--sombra);
+  --shadow-strong: 0 24px 48px rgba(14, 32, 70, 0.14);
+
+  /* Logo — facilita overrides por tema */
+  --logo-bg: var(--navy);
+  --logo-fg: var(--gold-brilliant);
 
   color-scheme: light;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   MODO OSCURO — tokens auditados para contraste WCAG AA
+   MODO OSCURO — valores redefinidos en mismo espacio de nombres
    ══════════════════════════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
+  --azul: #0A1426;
+  --azul-m: #3057AA;
+  --cielo: #3057AA;
+  --cielo-l: rgba(127, 169, 221, 0.14);
+
+  --acento: #EAB858;
+  --acento-l: rgba(234, 184, 88, 0.14);
+
   --bg: #0A1426;
-  --bg-subtle: #10203D;
-  --bg-deeper: #0A1426;
-  --surface: #152847;
-  --surface-hover: #1C345A;
-  --border: #2A4068;
-  --border-soft: #1F3356;
-  --border-strong: #3B547F;
+  --bg2: #10203D;
+  --borde: #2A4068;
+  --blanco: #152847;
+
+  --texto: #ECE8DB;
+  --texto2: #B8C0D2;
+  --texto3: #9AA2B6;
+
+  --verde: #8FCDA5;
+  --verde-l: rgba(143, 205, 165, 0.16);
+  --naran: #E5A946;
+  --naran-l: rgba(229, 169, 70, 0.15);
+  --rojo: #EB8A75;
+  --rojo-l: rgba(235, 138, 117, 0.18);
 
   --navy-deep: #0A1426;
   --navy: #3057AA;
@@ -111,12 +133,13 @@
   --gold-bg: rgba(234, 184, 88, 0.14);
   --gold-ink: #F5D289;
 
-  --sage: #8FCDA5;
-  --sage-soft: rgba(143, 205, 165, 0.16);
-  --terra: #EB8A75;
-  --terra-soft: rgba(235, 138, 117, 0.18);
-  --amber: #E5A946;
-  --amber-soft: rgba(229, 169, 70, 0.15);
+  --bg-subtle: #10203D;
+  --bg-deeper: #0A1426;
+  --surface: #152847;
+  --surface-hover: #1C345A;
+  --border: #2A4068;
+  --border-soft: #1F3356;
+  --border-strong: #3B547F;
 
   --text: #ECE8DB;
   --text-80: #DAD6C8;
