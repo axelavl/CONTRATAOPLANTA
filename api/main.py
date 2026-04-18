@@ -1906,7 +1906,7 @@ def admin_ofertas(
     }
 
 
-@app.post(f"/api/{ADMIN_PATH}/ofertas/{oferta_id}/toggle-activa", tags=["admin"])
+@app.post(f"/api/{ADMIN_PATH}/ofertas/{{oferta_id}}/toggle-activa", tags=["admin"])
 def admin_toggle_activa(
     oferta_id: int,
     _user: str = Depends(_verify_admin),
@@ -1926,7 +1926,7 @@ def admin_toggle_activa(
     return {"id": oferta_id, "activa": nuevo_estado}
 
 
-@app.put(f"/api/{ADMIN_PATH}/ofertas/{oferta_id}", tags=["admin"])
+@app.put(f"/api/{ADMIN_PATH}/ofertas/{{oferta_id}}", tags=["admin"])
 def admin_editar_oferta(
     oferta_id: int,
     payload: dict[str, Any],
