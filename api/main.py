@@ -2053,6 +2053,288 @@ def admin_fuentes(
     """, params)
 
 
+# ── Admin: ejecución manual de scrapers ──────────────────────────────────────
+
+@app.get(f"/api/{ADMIN_PATH}/scraper/catalog", tags=["admin"])
+def admin_scraper_catalog(
+    _user: str = Depends(_verify_admin),
+) -> list[dict[str, Any]]:
+    """Lista instituciones del catálogo con su clasificación (source_status)."""
+    try:
+        import json as _json
+        catalog_path = _PROJECT_ROOT / "repositorio_instituciones_publicas_chile.json"
+        if not catalog_path.exists():
+            return []
+        with open(catalog_path, encoding="utf-8") as f:
+            instituciones = _json.load(f)
+        if not _SOURCE_STATUS_AVAILABLE:
+            return [
+                {"id": i.get("id"), "nombre": i.get("nombre"), "sector": i.get("sector"), "url_empleo": i.get("url_empleo")}
+                for i in instituciones[:200]
+            ]
+        enriched = []
+        for item in instituciones[:300]:  # limitar para no bloquear el thread
+            try:
+                info = enrich_with_status(item)
+                enriched.append({
+                    "id": info.get("id"),
+                    "nombre": info.get("nombre"),
+                    "sector": info.get("sector"),
+                    "url_empleo": info.get("url_empleo"),
+                    "status": str(info.get("status", "")),
+                    "kind": str(info.get("kind", "")),
+                    "fuente_id": info.get("fuente_id"),
+                })
+            except Exception:
+                enriched.append({
+                    "id": item.get("id"), "nombre": item.get("nombre"),
+                    "sector": item.get("sector"), "url_empleo": item.get("url_empleo"),
+                    "status": "unknown", "kind": "unknown",
+                })
+        return enriched
+    except Exception as exc:
+        raise HTTPException(500, f"Error leyendo catálogo: {exc}") from exc
+
+
+@app.post(f"/api/{ADMIN_PATH}/scraper/run", tags=["admin"])
+async def admin_scraper_run(
+    payload: dict[str, Any],
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """
+    Dispara un scraper en background.
+
+    Body (JSON):
+      - mode: "empleos_publicos" | "institucion" | "kind"
+      - institucion_id: int   (para mode=institucion)
+      - kind: str             (para mode=kind, ej. "wordpress")
+      - dry_run: bool         (default false)
+      - max: int              (máx ofertas, default 50)
+    """
+    import subprocess, sys as _sys, shlex
+
+    mode       = payload.get("mode", "empleos_publicos")
+    dry_run    = bool(payload.get("dry_run", False))
+    max_offers = int(payload.get("max", 50))
+
+    # Construir comando
+    python = _sys.executable
+    run_all = str(_PROJECT_ROOT / "scrapers" / "run_all.py")
+
+    cmd = [python, run_all, "--mode", "production", "--max", str(max_offers)]
+    if dry_run:
+        cmd.append("--dry-run")
+
+    if mode == "empleos_publicos":
+        cmd += ["--only-kind", "empleos_publicos"]
+    elif mode == "institucion":
+        inst_id = payload.get("institucion_id")
+        if not inst_id:
+            raise HTTPException(400, "institucion_id es requerido para mode=institucion")
+        cmd += ["--id", str(inst_id), "--skip-empleos-publicos"]
+    elif mode == "kind":
+        kind = payload.get("kind", "wordpress")
+        cmd += ["--only-kind", kind, "--skip-empleos-publicos"]
+    else:
+        raise HTTPException(400, f"mode inválido: {mode}")
+
+    logger.info(f"[admin] scraper run: {shlex.join(cmd)}")
+
+    # Ejecutar en background (no bloquea la respuesta)
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=str(_PROJECT_ROOT),
+            text=True,
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"No se pudo lanzar el proceso: {exc}") from exc
+
+    # Registrar inicio en scraper_runs
+    run_id: int | None = None
+    try:
+        with get_cursor() as (conn, cur):
+            cur.execute(
+                """INSERT INTO scraper_runs (started_at, status, run_mode, notas)
+                   VALUES (NOW(), 'en_curso', %s, %s)
+                   RETURNING id""",
+                [f"manual-{mode}", f"pid={proc.pid} dry={dry_run}"],
+            )
+            row = cur.fetchone()
+            run_id = (row["id"] if isinstance(row, dict) else row[0]) if row else None
+            conn.commit()
+    except Exception:
+        pass  # tabla puede no existir
+
+    return {
+        "ok": True,
+        "pid": proc.pid,
+        "run_id": run_id,
+        "cmd": cmd[2:],  # omitir python path
+        "dry_run": dry_run,
+        "mode": mode,
+    }
+
+
+# ── Admin: configuración del sitio ───────────────────────────────────────────
+
+# Campos del sitio editables en caliente (guardados en tabla site_config si existe,
+# o en memoria como fallback para esta instancia del proceso).
+_SITE_CONFIG_MEMORY: dict[str, str] = {}
+
+
+def _get_site_config_db() -> dict[str, str]:
+    try:
+        rows = execute_fetch_all(
+            "SELECT clave, valor FROM site_config ORDER BY clave", []
+        )
+        return {r["clave"]: r["valor"] for r in rows}
+    except Exception:
+        return {}
+
+
+def _set_site_config_db(clave: str, valor: str) -> None:
+    with get_cursor() as (conn, cur):
+        cur.execute(
+            """INSERT INTO site_config (clave, valor, actualizado_en)
+               VALUES (%s, %s, NOW())
+               ON CONFLICT (clave) DO UPDATE
+               SET valor = EXCLUDED.valor, actualizado_en = NOW()""",
+            [clave, valor],
+        )
+        conn.commit()
+
+
+@app.get(f"/api/{ADMIN_PATH}/config", tags=["admin"])
+def admin_get_config(
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """Lee la configuración editable del sitio."""
+    db_conf = _get_site_config_db()
+    conf = {**_SITE_CONFIG_MEMORY, **db_conf}
+    # Añadir valores de env vars relevantes (no secretos)
+    env_info = {
+        "SITE_URL": SITE_URL,
+        "ADMIN_PATH_set": bool(os.getenv("ADMIN_PATH")),
+        "ADMIN_PASSWORD_set": bool(os.getenv("ADMIN_PASSWORD")),
+        "MEILISEARCH_URL_set": bool(os.getenv("MEILISEARCH_URL")),
+        "RESEND_API_KEY_set": bool(os.getenv("RESEND_API_KEY")),
+    }
+    return {"config": conf, "env": env_info}
+
+
+@app.put(f"/api/{ADMIN_PATH}/config", tags=["admin"])
+def admin_set_config(
+    payload: dict[str, Any],
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """
+    Actualiza configuración editable del sitio.
+
+    Claves soportadas: banner_mensaje, banner_activo, mantenimiento,
+    max_resultados_pagina, alertas_activas, footer_extra.
+    """
+    CLAVES_PERMITIDAS = {
+        "banner_mensaje", "banner_activo", "mantenimiento",
+        "max_resultados_pagina", "alertas_activas", "footer_extra",
+    }
+    updated: list[str] = []
+    for clave, valor in payload.items():
+        if clave not in CLAVES_PERMITIDAS:
+            continue
+        val_str = str(valor)
+        _SITE_CONFIG_MEMORY[clave] = val_str
+        try:
+            _set_site_config_db(clave, val_str)
+        except Exception:
+            pass  # si no existe la tabla, solo en memoria
+        updated.append(clave)
+    if not updated:
+        raise HTTPException(400, f"Sin claves válidas. Permitidas: {sorted(CLAVES_PERMITIDAS)}")
+    return {"updated": updated}
+
+
+# ── Admin: acciones sobre ofertas (bulk) ─────────────────────────────────────
+
+@app.post(f"/api/{ADMIN_PATH}/ofertas/bulk-desactivar", tags=["admin"])
+def admin_bulk_desactivar(
+    payload: dict[str, Any],
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """
+    Desactiva en bloque ofertas según criterios.
+
+    Body (JSON):
+      - ids: list[int]          — lista explícita de IDs
+      - url_rota: true          — todas las activas con URL rota
+      - fecha_cierre_vencida: true — activas con fecha_cierre < hoy
+    """
+    ids: list[int] = []
+
+    if "ids" in payload:
+        ids = [int(i) for i in payload["ids"] if str(i).isdigit()]
+    elif payload.get("url_rota"):
+        rows = execute_fetch_all(
+            "SELECT id FROM ofertas WHERE activa=TRUE AND url_oferta_valida=FALSE", []
+        )
+        ids = [r["id"] for r in rows]
+    elif payload.get("fecha_cierre_vencida"):
+        rows = execute_fetch_all(
+            "SELECT id FROM ofertas WHERE activa=TRUE AND fecha_cierre < CURRENT_DATE", []
+        )
+        ids = [r["id"] for r in rows]
+
+    if not ids:
+        return {"desactivadas": 0, "ids": []}
+
+    with get_cursor() as (conn, cur):
+        cur.execute(
+            "UPDATE ofertas SET activa=FALSE, estado='cerrada', actualizada_en=NOW() WHERE id = ANY(%s)",
+            [ids],
+        )
+        count = cur.rowcount
+        conn.commit()
+
+    logger.info(f"[admin] bulk-desactivar: {count} ofertas por {_user}")
+    return {"desactivadas": count, "ids": ids[:50]}
+
+
+@app.post(f"/api/{ADMIN_PATH}/urls/revalidar", tags=["admin"])
+async def admin_revalidar_urls(
+    payload: dict[str, Any],
+    _user: str = Depends(_verify_admin),
+) -> dict[str, Any]:
+    """
+    Dispara revalidación de URLs en background (llama a validate_offer_urls.py).
+
+    Body: { workers: int (default 20), max_edad_h: int (default 0 = todas) }
+    """
+    import subprocess, sys as _sys
+
+    workers   = int(payload.get("workers", 20))
+    max_edad  = int(payload.get("max_edad_h", 0))
+    limit     = int(payload.get("limit", 2000))
+
+    validate_script = _PROJECT_ROOT / "validate_offer_urls.py"
+    if not validate_script.exists():
+        raise HTTPException(404, "validate_offer_urls.py no encontrado")
+
+    cmd = [
+        _sys.executable, str(validate_script),
+        "--workers", str(workers),
+        "--max-edad-h", str(max_edad),
+        "--limit", str(limit),
+    ]
+    logger.info(f"[admin] revalidar URLs: {cmd}")
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        cwd=str(_PROJECT_ROOT), text=True,
+    )
+    return {"ok": True, "pid": proc.pid, "workers": workers, "limit": limit}
+
+
 # ── Fin endpoints admin ───────────────────────────────────────────────────────
 
 

@@ -250,6 +250,8 @@
     <button data-tab="ofertas">📋 Ofertas</button>
     <button data-tab="scrapers">🤖 Scrapers</button>
     <button data-tab="fuentes">🏛️ Fuentes</button>
+    <button data-tab="acciones">⚡ Acciones</button>
+    <button data-tab="config">⚙️ Config</button>
   </nav>
   <main>
 
@@ -336,6 +338,118 @@
             <tr class="loading-row"><td colspan="13"><span class="spinner"></span></td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="tab-panel" id="tab-acciones">
+      <div class="section-header"><h2>Acciones manuales</h2></div>
+
+      <!-- Ejecutar scraper -->
+      <div class="table-wrap" style="padding:20px;margin-bottom:20px">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:14px">🤖 Ejecutar scraper</h3>
+        <div class="filters" style="margin-bottom:14px">
+          <select id="run-mode">
+            <option value="empleos_publicos">EmpleosPublicos (portal central)</option>
+            <option value="kind">Por tipo (kind)</option>
+            <option value="institucion">Por institución ID</option>
+          </select>
+          <select id="run-kind" style="display:none">
+            <option value="wordpress">WordPress</option>
+            <option value="generic">Generic</option>
+            <option value="custom_trabajando">Trabajando.com</option>
+            <option value="custom_hiringroom">HiringRoom</option>
+            <option value="custom_buk">Buk</option>
+            <option value="custom_playwright">Playwright</option>
+          </select>
+          <input id="run-inst-id" type="number" placeholder="ID institución" style="display:none;width:160px">
+          <input id="run-max" type="number" value="50" min="1" max="500" style="width:100px" title="Máx. ofertas">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--muted);cursor:pointer">
+            <input id="run-dry" type="checkbox"> Dry run
+          </label>
+          <button class="btn btn-primary" onclick="runScraper()">▶ Ejecutar</button>
+        </div>
+        <div id="run-result" style="display:none;padding:12px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);font-size:13px;color:var(--muted)"></div>
+      </div>
+
+      <!-- Bulk acciones sobre ofertas -->
+      <div class="table-wrap" style="padding:20px;margin-bottom:20px">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:14px">📋 Acciones en bloque sobre ofertas</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+            <div style="font-weight:600;margin-bottom:6px">URLs rotas</div>
+            <div style="color:var(--muted);font-size:12px;margin-bottom:12px">Desactiva todas las ofertas activas con URL rota</div>
+            <button class="btn btn-danger btn-sm" onclick="bulkDesactivar('url_rota')">Desactivar</button>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+            <div style="font-weight:600;margin-bottom:6px">Fecha vencida</div>
+            <div style="color:var(--muted);font-size:12px;margin-bottom:12px">Desactiva ofertas activas con fecha_cierre &lt; hoy</div>
+            <button class="btn btn-danger btn-sm" onclick="bulkDesactivar('fecha_cierre_vencida')">Desactivar</button>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+            <div style="font-weight:600;margin-bottom:6px">Revalidar URLs</div>
+            <div style="color:var(--muted);font-size:12px;margin-bottom:12px">Relanza validate_offer_urls.py en background</div>
+            <button class="btn btn-primary btn-sm" onclick="revalidarUrls()">Revalidar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Catálogo de scrapers -->
+      <div class="section-header" style="margin-top:8px">
+        <h2>Catálogo de instituciones (clasificación)</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↻ Cargar</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Nombre</th><th>Sector</th><th>Kind</th><th>Status</th><th>Acción</th>
+          </tr></thead>
+          <tbody id="catalog-tbody">
+            <tr class="empty-row"><td colspan="6">Haz clic en "Cargar" para ver el catálogo</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="tab-panel" id="tab-config">
+      <div class="section-header">
+        <h2>Configuración del sitio</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadConfig()">↻ Actualizar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="table-wrap" style="padding:20px">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Variables de entorno (Railway)</h3>
+          <div id="env-info" style="color:var(--muted);font-size:13px">Cargando…</div>
+        </div>
+        <div class="table-wrap" style="padding:20px">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Configuración editable</h3>
+          <div class="form-group">
+            <label>Banner de aviso (texto)</label>
+            <input id="cfg-banner-mensaje" type="text" placeholder="Ej: El sitio estará en mantención el…">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px">
+            <label style="margin:0;white-space:nowrap">Banner activo</label>
+            <input id="cfg-banner-activo" type="checkbox">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px">
+            <label style="margin:0;white-space:nowrap">Modo mantenimiento</label>
+            <input id="cfg-mantenimiento" type="checkbox">
+          </div>
+          <div class="form-group">
+            <label>Máx. resultados por página</label>
+            <input id="cfg-max-pagina" type="number" value="50" min="10" max="200">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px">
+            <label style="margin:0;white-space:nowrap">Alertas por email activas</label>
+            <input id="cfg-alertas" type="checkbox" checked>
+          </div>
+          <div class="form-group">
+            <label>Footer extra (HTML simple)</label>
+            <textarea id="cfg-footer-extra" rows="2" placeholder="Texto adicional en el pie de página"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">Guardar configuración</button>
+        </div>
       </div>
     </div>
 
@@ -524,6 +638,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     if (tab === 'ofertas')  loadOfertas(1);
     else if (tab === 'scrapers') loadScrapers();
     else if (tab === 'fuentes')  loadFuentes();
+    else if (tab === 'config')   loadConfig();
   });
 });
 
@@ -801,6 +916,150 @@ async function loadFuentes() {
   } catch(e) {
     tbody.innerHTML=`<tr class="empty-row"><td colspan="10" style="color:var(--red)">Error: ${e.message}</td></tr>`;
   }
+}
+
+// ── ACCIONES ──────────────────────────────────────────────────
+document.getElementById('run-mode').addEventListener('change', function() {
+  const v = this.value;
+  document.getElementById('run-kind').style.display    = v==='kind'       ? '' : 'none';
+  document.getElementById('run-inst-id').style.display = v==='institucion'? '' : 'none';
+});
+
+async function runScraper() {
+  const mode    = document.getElementById('run-mode').value;
+  const kind    = document.getElementById('run-kind').value;
+  const instId  = document.getElementById('run-inst-id').value;
+  const max     = parseInt(document.getElementById('run-max').value) || 50;
+  const dryRun  = document.getElementById('run-dry').checked;
+  const res     = document.getElementById('run-result');
+
+  const payload = { mode, dry_run: dryRun, max };
+  if (mode==='kind')        payload.kind = kind;
+  if (mode==='institucion') payload.institucion_id = parseInt(instId);
+
+  res.style.display='block';
+  res.innerHTML='<span class="spinner"></span> Lanzando…';
+  try {
+    const r = await api('/scraper/run', { method:'POST', body:JSON.stringify(payload) });
+    res.innerHTML = `✅ Proceso lanzado — PID: <strong>${r.pid}</strong> · run_id: ${r.run_id??'—'} · dry_run: ${r.dry_run} · cmd: <code>${r.cmd.join(' ')}</code>`;
+    toast('Scraper iniciado ✓');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    toast('Error: '+e.message, 'error');
+  }
+}
+
+async function bulkDesactivar(tipo) {
+  const conf = tipo==='url_rota'
+    ? '¿Desactivar todas las ofertas con URL rota?'
+    : '¿Desactivar todas las ofertas con fecha de cierre vencida?';
+  if (!confirm(conf)) return;
+  try {
+    const r = await api('/ofertas/bulk-desactivar', {
+      method:'POST',
+      body: JSON.stringify({ [tipo]: true }),
+    });
+    toast(`${r.desactivadas} ofertas desactivadas ✓`);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function revalidarUrls() {
+  if (!confirm('¿Relanzar validación de URLs en background?')) return;
+  try {
+    const r = await api('/urls/revalidar', { method:'POST', body: JSON.stringify({ workers:20, max_edad_h:0, limit:2000 }) });
+    toast(`Revalidación iniciada — PID ${r.pid} ✓`);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function loadCatalog() {
+  const tbody = document.getElementById('catalog-tbody');
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="6"><span class="spinner"></span> Cargando catálogo…</td></tr>`;
+  try {
+    const items = await api('/scraper/catalog');
+    if (!items.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="6">Sin datos</td></tr>'; return; }
+    const km = {wordpress:'blue',generic:'gray',custom_trabajando:'orange',custom_hiringroom:'orange',
+                custom_buk:'orange',empleos_publicos:'blue',custom_playwright:'yellow',skip:'gray'};
+    const sm = {active:'green',experimental:'yellow',blocked:'red',broken:'red',
+                disabled:'gray',manual_review:'orange',no_data:'gray',js_required:'yellow'};
+    tbody.innerHTML = items.map(i=>`<tr>
+      <td class="text-muted text-small">${i.id??'—'}</td>
+      <td style="max-width:240px">${trunc(i.nombre||'—',36)}</td>
+      <td class="text-small text-muted">${trunc(i.sector||'—',22)}</td>
+      <td>${i.kind?`<span class="pill ${km[i.kind]||'gray'}">${i.kind}</span>`:'—'}</td>
+      <td>${i.status?`<span class="pill ${sm[i.status]||'gray'}">${i.status}</span>`:'—'}</td>
+      <td>${i.id && i.kind && i.kind!=='skip'
+        ?`<button class="btn btn-ghost btn-sm" onclick="runInstancia(${i.id},'${(i.nombre||'').replace(/'/g,'').slice(0,20)}')">▶ Run</button>`
+        :'—'
+      }</td>
+    </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="6" style="color:var(--red)">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function runInstancia(id, nombre) {
+  if (!confirm(`¿Ejecutar scraper para "${nombre}" (ID ${id})?`)) return;
+  const res = document.getElementById('run-result');
+  res.style.display='block';
+  res.innerHTML='<span class="spinner"></span> Lanzando…';
+  // Cambiar al tab acciones si no está ahí
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('[data-tab=acciones]').classList.add('active');
+  document.getElementById('tab-acciones').classList.add('active');
+  try {
+    const r = await api('/scraper/run', {
+      method:'POST',
+      body: JSON.stringify({ mode:'institucion', institucion_id:id, max:100 }),
+    });
+    res.innerHTML=`✅ PID: <strong>${r.pid}</strong> · run_id: ${r.run_id??'—'} · inst: ${id}`;
+    toast(`Scraper inst. ${id} iniciado ✓`);
+  } catch(e) {
+    res.innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;
+    toast('Error: '+e.message,'error');
+  }
+}
+
+// ── CONFIG ─────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const d = await api('/config');
+    // Env info
+    const env = d.env||{};
+    document.getElementById('env-info').innerHTML = Object.entries(env).map(([k,v])=>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${k}</span>
+        <span style="color:${v===true?'var(--green)':v===false?'var(--red)':'var(--text)'}">${
+          v===true?'✓ configurada':v===false?'✗ no configurada':v
+        }</span>
+       </div>`
+    ).join('');
+    // Config values
+    const c = d.config||{};
+    document.getElementById('cfg-banner-mensaje').value  = c.banner_mensaje||'';
+    document.getElementById('cfg-banner-activo').checked = c.banner_activo==='true';
+    document.getElementById('cfg-mantenimiento').checked = c.mantenimiento==='true';
+    document.getElementById('cfg-max-pagina').value      = c.max_resultados_pagina||50;
+    document.getElementById('cfg-alertas').checked       = c.alertas_activas!=='false';
+    document.getElementById('cfg-footer-extra').value    = c.footer_extra||'';
+  } catch(e) {
+    document.getElementById('env-info').textContent = 'Error: '+e.message;
+  }
+}
+
+async function saveConfig() {
+  const payload = {
+    banner_mensaje:       document.getElementById('cfg-banner-mensaje').value,
+    banner_activo:        document.getElementById('cfg-banner-activo').checked ? 'true':'false',
+    mantenimiento:        document.getElementById('cfg-mantenimiento').checked ? 'true':'false',
+    max_resultados_pagina: document.getElementById('cfg-max-pagina').value,
+    alertas_activas:      document.getElementById('cfg-alertas').checked ? 'true':'false',
+    footer_extra:         document.getElementById('cfg-footer-extra').value,
+  };
+  try {
+    const r = await api('/config', { method:'PUT', body:JSON.stringify(payload) });
+    toast(`Config guardada: ${r.updated.join(', ')} ✓`);
+  } catch(e) { toast('Error: '+e.message,'error'); }
 }
 
 // ── Keyboard ───────────────────────────────────────────────────
