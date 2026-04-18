@@ -1,630 +1,433 @@
+# -*- coding: utf-8 -*-
 """
-Orquestador principal de scrapers.
+Orquestador principal del scraping guiado por gatekeeper.
 
-Filtra las fuentes del catálogo según su clasificación operativa
-(``source_status.classify_source``) y ejecuta el scraper que le corresponde
-a cada una. Por defecto corre sólo fuentes ``active``: todo lo demás queda
-fuera salvo que se pase un flag explícito.
+Flujo:
+    Discovery -> Evaluation/Gatekeeper -> Extractor Router -> Extraction
+    -> Post-Extraction Quality -> Persistence -> Audit
 
-Ejemplos:
-
-    # Corrida normal: sólo fuentes activas, modo production (rápido).
-    python scrapers/run_all.py
-
-    # Incluir experimentales (WordPress sin verificar, portales de terceros).
-    python scrapers/run_all.py --include-experimental
-
-    # Corrida exploratoria sobre las que están en revisión manual.
-    python scrapers/run_all.py --include-manual-review --mode exploration
-
-    # Sólo WordPress, máx 10 ofertas por fuente.
-    python scrapers/run_all.py --only-kind wordpress --max 10
-
-    # Probar rápido sin escribir DB ni correr el batch de empleospublicos.
-    python scrapers/run_all.py --dry-run --max 3 --skip-empleos-publicos
+Este modulo reemplaza el comportamiento anterior basado en ejecutar
+directamente "todo lo conocido". Ahora primero evaluamos cada fuente y
+dejamos una decision trazable incluso cuando no se extrae nada.
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib
+import asyncio
 import json
-import logging
 import sys
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
-if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from scrapers.base import LOG_DIR, build_file_handler, clean_text, normalize_key
-from scrapers.empleos_publicos import EmpleosPublicosScraper
-from scrapers.plataformas.generic_site import GenericSiteScraper
-from scrapers.plataformas.wordpress import WordPressScraper
-from scrapers.source_status import (
-    DEFAULT_RUN_STATUSES,
-    ScraperKind,
-    SourceDecision,
-    SourceStatus,
-    classify_source,
-    enrich_with_status,
-    filter_runnable,
-    kind_breakdown,
-    status_breakdown,
+from scrapers.base import (
+    BaseScraper,
+    HttpClient,
+    PrecisionReport,
+    cerrar_pool,
+    conexion,
+    generar_reporte,
+    get_pool,
+    limpiar_vencidas,
+    setup_logging,
 )
+from scrapers.empleos_publicos import EmpleosPublicosScraper
+from scrapers.evaluation.audit_store import AuditStore
+from scrapers.evaluation.catalog_loader import CatalogLoader
+from scrapers.evaluation.models import Decision, ExtractorKind
+from scrapers.evaluation.source_evaluator import SourceEvaluator
+from scrapers.plataformas.buk import BukScraper
+from scrapers.plataformas.carabineros import CarabinerosScraper
+from scrapers.plataformas.ffaa import FfaaScraper
+from scrapers.plataformas.generic_site import GenericSiteScraper
+from scrapers.plataformas.hiringroom import HiringRoomScraper
+from scrapers.plataformas.pdi import PdiScraper
+from scrapers.plataformas.playwright_scraper import PlaywrightScraper
+from scrapers.plataformas.trabajando_cl import TrabajandoCLScraper
+from scrapers.plataformas.wordpress import WordPressScraper
 
 
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+log = setup_logging("run_all")
+MAX_EVALUATIONS_CONCURRENT = 8
+MAX_SCRAPERS_CONCURRENT = 6
 
-logger = logging.getLogger("scrapers.run_all")
-logger.setLevel(logging.INFO)
-if not logger.handlers:
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    file_handler = build_file_handler(
-        LOG_DIR / f"scraper_{time.strftime('%Y%m%d')}.log"
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-logger.propagate = False
-
-
-# Mapeo ScraperKind -> módulo importable con función ``ejecutar``.
-PLATFORM_MODULES: dict[ScraperKind, str] = {
-    ScraperKind.CUSTOM_TRABAJANDO: "scrapers.plataformas.trabajando_cl",
-    ScraperKind.CUSTOM_HIRINGROOM: "scrapers.plataformas.hiringroom",
-    ScraperKind.CUSTOM_BUK: "scrapers.plataformas.buk",
-    ScraperKind.CUSTOM_PLAYWRIGHT: "scrapers.plataformas.playwright_scraper",
-    ScraperKind.CUSTOM_POLICIA: "scrapers.plataformas.policia",
-    ScraperKind.CUSTOM_FFAA: "scrapers.plataformas.ffaa",
+SUPPORTED_RUNTIME_EXTRACTORS = {
+    ExtractorKind.SCRAPER_EMPLEOS_PUBLICOS,
+    ExtractorKind.SCRAPER_WORDPRESS_JOBS,
+    ExtractorKind.SCRAPER_WORDPRESS_NEWS_FILTER,
+    ExtractorKind.SCRAPER_EXTERNAL_ATS,
+    ExtractorKind.SCRAPER_PDF_JOBS,
+    ExtractorKind.SCRAPER_CUSTOM_DETAIL,
+    ExtractorKind.SCRAPER_GENERIC_FALLBACK,
+    ExtractorKind.SCRAPER_PLAYWRIGHT,
 }
 
 
 @dataclass(slots=True)
-class ResultadoEjecucion:
-    nombre: str
-    status: str
-    found: int = 0
-    nuevas: int = 0
-    actualizadas: int = 0
-    cerradas: int = 0
-    errores: int = 0
-    detalle: str = ""
-    duracion: float = 0.0
-    kind: str = ""
+class RuntimeSource:
+    institucion: dict[str, Any]
+    fuente_id: int | None
+    evaluation: Any
 
 
-# ────────────────────────────── Carga catálogo ────────────────────────
-
-def load_repository(path: str | Path) -> list[dict[str, Any]]:
-    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    instituciones = payload.get("instituciones") if isinstance(payload, dict) else payload
-    if not isinstance(instituciones, list):
-        raise ValueError("El JSON maestro no contiene una lista valida de instituciones")
-    return instituciones
+def _host(url: str | None) -> str:
+    if not url:
+        return ""
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    host = parsed.netloc.lower()
+    return host[4:] if host.startswith("www.") else host
 
 
-# ────────────────────────────── main ──────────────────────────────────
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Orquestador de scrapers publicos")
-    parser.add_argument(
-        "--json",
-        default=str(
-            Path(__file__).resolve().parents[1]
-            / "repositorio_instituciones_publicas_chile.json"
-        ),
-        help="Ruta al repositorio maestro de instituciones",
-    )
-    parser.add_argument("--sector", default=None, help="Filtrar por sector")
-    parser.add_argument("--id", type=int, default=None, help="Ejecutar solo una institucion")
-    parser.add_argument("--dry-run", action="store_true", help="No guarda en PostgreSQL")
-    parser.add_argument("--max", type=int, default=None, help="Limite de ofertas por scraper")
-    parser.add_argument(
-        "--max-fuentes",
-        type=int,
-        default=None,
-        help="Máximo de fuentes a ejecutar (después de filtros). Útil para pruebas.",
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["production", "exploration"],
-        default="production",
-        help="Perfil del scraper genérico: production (rápido) o exploration (amplio)",
-    )
-    parser.add_argument(
-        "--include-experimental",
-        action="store_true",
-        help="Incluir fuentes con status=experimental",
-    )
-    parser.add_argument(
-        "--include-manual-review",
-        action="store_true",
-        help="Incluir fuentes con status=manual_review",
-    )
-    parser.add_argument(
-        "--include-disabled",
-        action="store_true",
-        help="Incluir fuentes disabled/broken/no_data/blocked/js_required",
-    )
-    parser.add_argument(
-        "--only-status",
-        default=None,
-        help="Restringir a un único status (p.ej. active)",
-    )
-    parser.add_argument(
-        "--only-kind",
-        default=None,
-        help="Restringir a un único kind (wordpress|generic|empleos_publicos|custom_trabajando|...)",
-    )
-    parser.add_argument(
-        "--only-platform",
-        default=None,
-        help="Alias de --only-kind, por compatibilidad",
-    )
-    parser.add_argument(
-        "--skip-empleos-publicos",
-        action="store_true",
-        help="No correr el batch de empleospublicos.cl",
-    )
-    parser.add_argument(
-        "--list-only",
-        action="store_true",
-        help="Sólo imprime la clasificación y sale sin scrapear",
-    )
-    args = parser.parse_args()
-
-    instituciones = load_repository(args.json)
-
-    # ── filtros del catálogo base ──
-    if args.sector:
-        sector_key = normalize_key(args.sector)
-        instituciones = [
-            item for item in instituciones if normalize_key(item.get("sector")) == sector_key
-        ]
-    if args.id is not None:
-        instituciones = [item for item in instituciones if item.get("id") == args.id]
-
-    if not instituciones:
-        print("No hay instituciones en el catálogo para los filtros dados.")
-        return
-
-    # ── clasificación ──
-    enriched = enrich_with_status(instituciones)
-    status_counts = status_breakdown(enriched)
-    kind_counts = kind_breakdown(enriched)
-
-    # ── status permitidos ──
-    allowed: set[SourceStatus] = set(DEFAULT_RUN_STATUSES)
-    if args.include_experimental:
-        allowed.add(SourceStatus.EXPERIMENTAL)
-    if args.include_manual_review:
-        allowed.add(SourceStatus.MANUAL_REVIEW)
-    if args.include_disabled:
-        allowed |= {
-            SourceStatus.DISABLED,
-            SourceStatus.BROKEN,
-            SourceStatus.NO_DATA,
-            SourceStatus.BLOCKED,
-            SourceStatus.JS_REQUIRED,
+def _load_fuentes_index() -> list[dict[str, Any]]:
+    try:
+        with conexion() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, nombre, url_base, tipo_plataforma
+                    FROM fuentes
+                    WHERE activa = TRUE
+                    ORDER BY id
+                    """
+                )
+                rows = cur.fetchall()
+    except Exception as exc:
+        log.warning("No se pudo cargar la tabla fuentes: %s", exc)
+        return []
+    return [
+        {
+            "id": row[0],
+            "nombre": row[1],
+            "url_base": row[2],
+            "tipo_plataforma": row[3],
         }
-    if args.only_status:
-        try:
-            allowed = {SourceStatus(args.only_status)}
-        except ValueError:
-            raise SystemExit(
-                f"--only-status inválido: {args.only_status}. "
-                f"Válidos: {', '.join(s.value for s in SourceStatus)}"
-            )
-
-    # ── kind filter ──
-    only_kind: ScraperKind | None = None
-    only_kind_raw = args.only_kind or args.only_platform
-    if only_kind_raw:
-        try:
-            only_kind = ScraperKind(only_kind_raw)
-        except ValueError:
-            raise SystemExit(
-                f"--only-kind inválido: {only_kind_raw}. "
-                f"Válidos: {', '.join(k.value for k in ScraperKind)}"
-            )
-
-    # ── fuentes que efectivamente entran a la corrida por-sitio ──
-    runnable_all = filter_runnable(enriched, allowed, only_kind=only_kind)
-
-    # Excluimos EMPLEOS_PUBLICOS de la corrida por-sitio: lo maneja el batch.
-    runnable_per_site = [
-        (inst, dec) for inst, dec in runnable_all if dec.kind != ScraperKind.EMPLEOS_PUBLICOS
+        for row in rows
     ]
 
-    if args.max_fuentes is not None:
-        runnable_per_site = runnable_per_site[: args.max_fuentes]
 
-    # ── resumen previo ──
-    print_pre_run_summary(
-        total_catalogo=len(instituciones),
-        status_counts=status_counts,
-        kind_counts=kind_counts,
-        runnable_count=len(runnable_per_site),
-        allowed=allowed,
-        mode=args.mode,
-        only_kind=only_kind_raw,
-    )
-    logger.info(
-        "evento=run_all_inicio total=%s runnable=%s mode=%s dry_run=%s max=%s",
-        len(instituciones),
-        len(runnable_per_site),
-        args.mode,
-        args.dry_run,
-        args.max,
-    )
+def _resolve_fuente_id(institucion: dict[str, Any], evaluation: Any, fuentes_index: list[dict[str, Any]]) -> int | None:
+    if evaluation.recommended_extractor == ExtractorKind.SCRAPER_EMPLEOS_PUBLICOS:
+        for item in fuentes_index:
+            if (item.get("tipo_plataforma") or "").lower() == "empleospublicos":
+                return item["id"]
+        return 1
 
-    if args.list_only:
-        print_classification_detail(enriched, allowed)
-        return
+    target_hosts = {
+        _host(institucion.get("url_empleo")),
+        _host(institucion.get("sitio_web")),
+    }
+    target_hosts.discard("")
+    for item in fuentes_index:
+        if _host(item.get("url_base")) in target_hosts:
+            return item["id"]
 
-    # ── ejecución ──
-    start = time.time()
-    resultados: list[ResultadoEjecucion] = []
+    nombre = str(institucion.get("nombre") or "").strip().lower()
+    for item in fuentes_index:
+        if str(item.get("nombre") or "").strip().lower() == nombre:
+            return item["id"]
+    return None
 
-    # 1) batch empleospublicos.cl — a menos que el usuario lo corte
-    if (
-        not args.skip_empleos_publicos
-        and (only_kind is None or only_kind == ScraperKind.EMPLEOS_PUBLICOS)
-    ):
-        instituciones_ep = [
-            inst for inst, dec in enriched if dec.covered_by_central
-        ]
-        if instituciones_ep:
-            resultados.append(
-                run_empleos_publicos(
-                    instituciones=instituciones_ep,
-                    dry_run=args.dry_run,
-                    max_results=args.max,
+
+def _build_discovery_catalog(loader: CatalogLoader, *, limit: int | None = None) -> list[dict[str, Any]]:
+    bundle = loader.load(prefer_json=True)
+    items = [
+        inst
+        for inst in bundle.instituciones
+        if inst.get("url_empleo") or inst.get("sitio_web")
+    ]
+    return items[:limit] if limit else items
+
+
+async def _evaluate_sources(
+    sources: list[dict[str, Any]],
+    *,
+    audit_store: AuditStore,
+    fuentes_index: list[dict[str, Any]],
+) -> list[RuntimeSource]:
+    runtime_sources: list[RuntimeSource] = []
+    sem = asyncio.Semaphore(MAX_EVALUATIONS_CONCURRENT)
+    async with HttpClient() as http:
+        evaluator = SourceEvaluator(http)
+
+        async def _evaluate_one(source: dict[str, Any]) -> RuntimeSource:
+            async with sem:
+                source_id = _resolve_fuente_id(source, type("EmptyEval", (), {"recommended_extractor": None})(), fuentes_index)
+                historical_noise_ratio = 0.0
+                try:
+                    with conexion() as conn:
+                        historical_noise_ratio = audit_store.get_institution_noise_ratio(conn, source.get("id"))
+                except Exception:
+                    historical_noise_ratio = 0.0
+                evaluation = await evaluator.evaluate(source, historical_noise_ratio=historical_noise_ratio)
+                fuente_id = _resolve_fuente_id(source, evaluation, fuentes_index)
+                try:
+                    with conexion() as conn:
+                        audit_store.save_source_evaluation(
+                            conn,
+                            source_id=fuente_id,
+                            institucion_id=source.get("id"),
+                            evaluation=evaluation,
+                        )
+                        if fuente_id is None and evaluation.decision == Decision.EXTRACT:
+                            audit_store.save_catalog_event(
+                                conn,
+                                institucion_id=source.get("id"),
+                                event_type="missing_runtime_source",
+                                detail="La fuente fue evaluada como extraible, pero no existe mapeo fuente_id en el runtime actual.",
+                                payload=evaluation.to_record(),
+                            )
+                        conn.commit()
+                except Exception:
+                    pass
+                return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=evaluation)
+
+        runtime_sources = await asyncio.gather(*[_evaluate_one(source) for source in sources])
+    return list(runtime_sources)
+
+
+def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
+    scrapers: list[BaseScraper] = []
+    empleos_publicos_agregado = False
+
+    for item in runtime_sources:
+        evaluation = item.evaluation
+        if evaluation.decision != Decision.EXTRACT:
+            continue
+        if evaluation.recommended_extractor not in SUPPORTED_RUNTIME_EXTRACTORS:
+            continue
+        if item.fuente_id is None:
+            continue
+
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_EMPLEOS_PUBLICOS:
+            if empleos_publicos_agregado:
+                continue
+            scrapers.append(EmpleosPublicosScraper(fuente_id=item.fuente_id))
+            empleos_publicos_agregado = True
+            continue
+
+        if evaluation.recommended_extractor in {
+            ExtractorKind.SCRAPER_WORDPRESS_JOBS,
+            ExtractorKind.SCRAPER_WORDPRESS_NEWS_FILTER,
+        }:
+            url_base = (
+                str(item.institucion.get("url_empleo") or "").strip()
+                or str(item.institucion.get("sitio_web") or "").strip()
+            )
+            scrapers.append(
+                WordPressScraper(
+                    fuente_id=item.fuente_id,
+                    nombre_fuente=str(item.institucion.get("nombre") or item.institucion.get("sigla") or f"wp-{item.institucion.get('id')}"),
+                    url_base=url_base,
+                    sector=item.institucion.get("sector"),
+                    region=item.institucion.get("region"),
                 )
             )
+            continue
 
-    # 2) corrida por-sitio (WordPress / Generic / Custom)
-    for institucion, decision in runnable_per_site:
-        resultados.append(
-            run_single_source(
-                institucion=institucion,
-                decision=decision,
-                instituciones_catalogo=instituciones,
-                dry_run=args.dry_run,
-                max_results=args.max,
-                mode=args.mode,
-            )
-        )
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_EXTERNAL_ATS:
+            profile_name = item.evaluation.profile_name or ""
+            if profile_name == "ats_trabajando":
+                scrapers.append(TrabajandoCLScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            elif profile_name == "ats_hiringroom":
+                scrapers.append(HiringRoomScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            elif profile_name == "ats_buk":
+                scrapers.append(BukScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            else:
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            continue
 
-    elapsed = round(time.time() - start, 2)
-    print_summary(resultados, elapsed)
-    logger.info(
-        "evento=run_all_fin total_resultados=%s duracion_seg=%s",
-        len(resultados),
-        elapsed,
-    )
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PDF_JOBS:
+            inst_id = item.institucion.get("id")
+            if inst_id == 161:
+                scrapers.append(CarabinerosScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            elif inst_id == 162:
+                scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            else:
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            continue
 
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_CUSTOM_DETAIL:
+            profile_name = item.evaluation.profile_name or ""
+            if profile_name == "ffaa_waf" or item.institucion.get("id") in {157, 158}:
+                scrapers.append(FfaaScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            elif item.institucion.get("id") == 161:
+                scrapers.append(CarabinerosScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            elif item.institucion.get("id") == 162:
+                scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            else:
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            continue
 
-# ────────────────────────── Routing por kind ──────────────────────────
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PLAYWRIGHT:
+            scrapers.append(PlaywrightScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            continue
 
-def run_single_source(
-    institucion: dict[str, Any],
-    decision: SourceDecision,
-    instituciones_catalogo: list[dict[str, Any]],
-    dry_run: bool,
-    max_results: int | None,
-    mode: str,
-) -> ResultadoEjecucion:
-    kind = decision.kind
-    if kind == ScraperKind.WORDPRESS:
-        result = run_wordpress(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            dry_run=dry_run,
-            max_results=max_results,
-        )
-    elif kind == ScraperKind.GENERIC:
-        result = run_generic_site(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            dry_run=dry_run,
-            max_results=max_results,
-            mode=mode,
-            detalle=decision.reason,
-        )
-    elif kind in PLATFORM_MODULES:
-        result = run_platform_module(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            platform_module=PLATFORM_MODULES[kind],
-            dry_run=dry_run,
-            max_results=max_results,
-        )
-    else:
-        result = ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="SKIP",
-            detalle=f"kind no soportado: {kind.value}",
-        )
-    result.kind = kind.value
-    return result
+        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_GENERIC_FALLBACK:
+            scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
+            continue
+    return scrapers
 
 
-def run_empleos_publicos(
-    instituciones: list[dict[str, Any]],
-    dry_run: bool,
-    max_results: int | None,
-) -> ResultadoEjecucion:
-    try:
-        scraper = EmpleosPublicosScraper(
-            instituciones=instituciones,
-            dry_run=dry_run,
-            max_results=max_results,
-            strict_institution_match=True,
-        )
-        stats = scraper.run()
-        result = result_from_stats("empleospublicos.cl", stats)
-        result.kind = ScraperKind.EMPLEOS_PUBLICOS.value
-        return result
-    except Exception as exc:
-        logger.exception("evento=run_ep_error error=%s", exc)
-        return ResultadoEjecucion(
-            nombre="empleospublicos.cl",
-            status="ERR",
-            errores=1,
-            detalle=str(exc),
-            kind=ScraperKind.EMPLEOS_PUBLICOS.value,
-        )
+async def _run_scraper(scraper: BaseScraper, sem: asyncio.Semaphore) -> PrecisionReport:
+    async with sem:
+        try:
+            async with scraper:
+                return await scraper.run()
+        except Exception as exc:
+            log.exception("Scraper %s fallo: %s", scraper.nombre_fuente, exc)
+            report = scraper.report
+            report.errores += 1
+            return report
 
 
-def run_wordpress(
-    institucion: dict[str, Any],
-    instituciones_catalogo: list[dict[str, Any]],
-    dry_run: bool,
-    max_results: int | None,
-) -> ResultadoEjecucion:
-    try:
-        scraper = WordPressScraper(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            dry_run=dry_run,
-            max_results=max_results,
-        )
-        stats = scraper.run()
-        return result_from_stats(display_name(institucion), stats)
-    except Exception as exc:
-        logger.exception(
-            "evento=run_wordpress_error institucion=%s error=%s",
-            institucion.get("nombre"),
-            exc,
-        )
-        return ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="ERR",
-            errores=1,
-            detalle=str(exc),
-        )
+async def _run_scrapers(scrapers: list[BaseScraper]) -> list[PrecisionReport]:
+    if not scrapers:
+        return []
+    sem = asyncio.Semaphore(MAX_SCRAPERS_CONCURRENT)
+    return list(await asyncio.gather(*[_run_scraper(scraper, sem) for scraper in scrapers]))
 
 
-def run_generic_site(
-    institucion: dict[str, Any],
-    instituciones_catalogo: list[dict[str, Any]],
-    dry_run: bool,
-    max_results: int | None,
-    mode: str = "production",
-    detalle: str = "",
-) -> ResultadoEjecucion:
-    try:
-        scraper = GenericSiteScraper(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            dry_run=dry_run,
-            max_results=max_results,
-            mode=mode,
-        )
-        stats = scraper.run()
-        result = result_from_stats(display_name(institucion), stats)
-        if detalle and not result.detalle:
-            result.detalle = detalle
-        return result
-    except Exception as exc:
-        logger.exception(
-            "evento=run_generic_error institucion=%s error=%s",
-            institucion.get("nombre"),
-            exc,
-        )
-        return ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="ERR",
-            errores=1,
-            detalle=str(exc),
-        )
-
-
-def run_platform_module(
-    institucion: dict[str, Any],
-    instituciones_catalogo: list[dict[str, Any]],
-    platform_module: str,
-    dry_run: bool,
-    max_results: int | None,
-) -> ResultadoEjecucion:
-    try:
-        module = importlib.import_module(platform_module)
-    except ModuleNotFoundError:
-        return ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="SKIP",
-            detalle=f"modulo no disponible: {platform_module}",
-        )
-
-    if not hasattr(module, "ejecutar"):
-        return ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="SKIP",
-            detalle=f"modulo sin ejecutar(): {platform_module}",
-        )
-
-    try:
-        stats = module.ejecutar(
-            institucion=institucion,
-            instituciones_catalogo=instituciones_catalogo,
-            dry_run=dry_run,
-            max_results=max_results,
-        )
-        return result_from_stats(display_name(institucion), stats)
-    except Exception as exc:
-        logger.exception(
-            "evento=run_platform_error institucion=%s modulo=%s error=%s",
-            institucion.get("nombre"),
-            platform_module,
-            exc,
-        )
-        return ResultadoEjecucion(
-            nombre=display_name(institucion),
-            status="ERR",
-            errores=1,
-            detalle=str(exc),
-        )
-
-
-# ────────────────────────── Helpers varios ────────────────────────────
-
-def result_from_stats(nombre: str, stats: dict[str, Any]) -> ResultadoEjecucion:
-    status = stats.get("status") or "OK"
-    if status == "ERROR":
-        status = "ERR"
-    return ResultadoEjecucion(
-        nombre=nombre,
-        status=status,
-        found=stats.get("found", 0),
-        nuevas=stats.get("nuevas", 0),
-        actualizadas=stats.get("actualizadas", 0),
-        cerradas=stats.get("cerradas", 0),
-        errores=stats.get("errores", 0),
-        detalle=stats.get("detalle", ""),
-        duracion=float(stats.get("duracion_seg") or 0.0),
-    )
-
-
-def display_name(institucion: dict[str, Any]) -> str:
-    return clean_text(institucion.get("nombre")) or f"institucion_{institucion.get('id')}"
-
-
-# ────────────────────────── Resumen pre-run ───────────────────────────
-
-def print_pre_run_summary(
-    total_catalogo: int,
-    status_counts: dict[str, int],
-    kind_counts: dict[str, int],
-    runnable_count: int,
-    allowed: set[SourceStatus],
-    mode: str,
-    only_kind: str | None,
+def persistir_corrida(
+    *,
+    evaluations: list[RuntimeSource],
+    reports: list[PrecisionReport],
+    duration_seconds: float,
+    vencidas_cerradas: int,
 ) -> None:
-    print("=" * 70)
-    print(f"CATÁLOGO: {total_catalogo} instituciones")
-    print("-" * 70)
-    print("Clasificación por status:")
-    for status in SourceStatus:
-        count = status_counts.get(status.value, 0)
-        mark = "→" if status in allowed else " "
-        print(f"  {mark} {status.value:<16} {count:>4}")
-    print("-" * 70)
-    print("Clasificación por kind:")
-    for kind, count in sorted(kind_counts.items(), key=lambda kv: -kv[1]):
-        if count:
-            print(f"    {kind:<20} {count:>4}")
-    print("-" * 70)
-    print(
-        f"Se ejecutarán {runnable_count} fuentes por-sitio "
-        f"(mode={mode}, only_kind={only_kind or '-'})"
+    total_encontradas = sum(report.total_encontradas for report in reports)
+    total_nuevas = sum(report.guardadas for report in reports)
+    total_actualizadas = sum(report.ya_existian for report in reports)
+    total_descartadas = sum(
+        report.descartadas_negativas + report.descartadas_sin_keywords + report.descartadas_vencidas
+        for report in reports
     )
-    print("=" * 70)
-
-
-def print_classification_detail(
-    enriched: list[tuple[dict[str, Any], SourceDecision]],
-    allowed: set[SourceStatus],
-) -> None:
-    from scrapers.frequency_policy import resolve_tier
-
-    for inst, dec in enriched:
-        mark = "RUN " if dec.status in allowed else "SKIP"
-        nombre = clean_text(inst.get("nombre"))[:45]
-        tier = resolve_tier(
-            inst,
-            kind=dec.kind,
-            status=dec.status,
-            override={"frequency_tier": dec.frequency_tier} if dec.frequency_tier else None,
-        )
-        print(
-            f"{mark} [{dec.status.value:<14}] [{dec.kind.value:<18}] "
-            f"[{tier.value:<11}] id={inst.get('id')} {nombre} — {dec.reason}"
-        )
-
-
-# ────────────────────────── Resumen final ─────────────────────────────
-
-def print_summary(resultados: list[ResultadoEjecucion], elapsed: float) -> None:
-    total_nuevas = sum(item.nuevas for item in resultados)
-    total_actualizadas = sum(item.actualizadas for item in resultados)
-    total_cerradas = sum(item.cerradas for item in resultados)
-    total_found = sum(item.found for item in resultados)
-
-    by_status: dict[str, int] = {}
-    con_datos = 0
-    sin_datos = 0
-    con_error = 0
-
-    for item in resultados:
-        by_status[item.status] = by_status.get(item.status, 0) + 1
-        if item.status == "ERR":
-            con_error += 1
-        elif item.found > 0:
-            con_datos += 1
-        else:
-            sin_datos += 1
-
-    status_symbol = {"OK": "OK  ", "PARCIAL": "WARN", "ERR": "ERR ", "SKIP": "SKIP"}
-    mostrados = [item for item in resultados if item.status != "SKIP"]
-    skips = [item for item in resultados if item.status == "SKIP"]
-
-    for item in mostrados:
-        detalle = f" | {item.detalle}" if item.detalle else ""
-        symbol = status_symbol.get(item.status, item.status)
-        duracion = f" {item.duracion:>5.1f}s" if item.duracion else "       "
-        print(
-            f"{symbol} {item.nombre[:32]:<32} -> {item.found:>4} ofertas "
-            f"({item.errores} err){duracion}{detalle[:50]}"
-        )
-
-    if skips:
-        resumen_skips: dict[str, int] = {}
-        for item in skips:
-            clave = item.detalle or "skip"
-            resumen_skips[clave] = resumen_skips.get(clave, 0) + 1
-        for detalle, cantidad in sorted(
-            resumen_skips.items(), key=lambda entry: (-entry[1], entry[0])
-        ):
-            print(f"SKIP  {cantidad:>3} instituciones | {detalle}")
-
-    print("-" * 70)
-    print(
-        f"Resumen: {con_datos} con datos | {sin_datos} sin datos | "
-        f"{con_error} con error | {len(skips)} skip"
+    total_errores = sum(report.errores for report in reports)
+    detail = {
+        "reports": {report.institucion: report.to_dict() for report in reports},
+        "evaluations": {
+            "total": len(evaluations),
+            "extract": sum(1 for item in evaluations if item.evaluation.decision == Decision.EXTRACT),
+            "skip": sum(1 for item in evaluations if item.evaluation.decision == Decision.SKIP),
+            "manual_review": sum(1 for item in evaluations if item.evaluation.decision == Decision.MANUAL_REVIEW),
+            "source_status_only": sum(1 for item in evaluations if item.evaluation.decision == Decision.SOURCE_STATUS_ONLY),
+        },
+    }
+    tasa = (
+        (total_nuevas + total_actualizadas) / total_encontradas * 100.0
+        if total_encontradas else 0.0
     )
-    print(
-        f"Totales:  {total_found} ofertas encontradas | {total_nuevas} nuevas | "
-        f"{total_actualizadas} actualizadas | {total_cerradas} cerradas"
+
+    try:
+        with conexion() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO scraper_runs (
+                        duracion_segundos,
+                        total_instituciones,
+                        total_encontradas,
+                        total_nuevas,
+                        total_actualizadas,
+                        total_vencidas,
+                        total_descartadas,
+                        total_errores,
+                        tasa_precision,
+                        detalle
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                    """,
+                    (
+                        int(duration_seconds),
+                        len(reports),
+                        total_encontradas,
+                        total_nuevas,
+                        total_actualizadas,
+                        vencidas_cerradas,
+                        total_descartadas,
+                        total_errores,
+                        round(tasa, 2),
+                        json.dumps(detail, ensure_ascii=False),
+                    ),
+                )
+            conn.commit()
+    except Exception as exc:
+        log.warning("No se pudo registrar scraper_runs: %s", exc)
+
+
+def _print_evaluation_summary(runtime_sources: list[RuntimeSource]) -> None:
+    by_decision: dict[str, int] = {}
+    for item in runtime_sources:
+        key = item.evaluation.decision.value
+        by_decision[key] = by_decision.get(key, 0) + 1
+    log.info("Resumen de gatekeeper: %s", by_decision)
+
+
+async def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run all scraping pipeline with gatekeeper.")
+    parser.add_argument("--catalog-json", help="Ruta alternativa al catalogo JSON.")
+    parser.add_argument("--catalog-xlsx", help="Ruta alternativa al catalogo XLSX.")
+    parser.add_argument("--limit", type=int, help="Limitar fuentes para una corrida parcial.")
+    parser.add_argument("--evaluate-only", action="store_true", help="Solo ejecutar discovery+evaluation.")
+    args = parser.parse_args(argv)
+
+    log.info("Inicio run_all gatekeeper %s", datetime.now().isoformat(timespec="seconds"))
+    t0 = time.monotonic()
+    db_enabled = True
+    try:
+        get_pool()
+    except Exception as exc:
+        db_enabled = False
+        log.warning("BD no disponible para esta corrida: %s", exc)
+        if not args.evaluate_only:
+            log.warning("Se fuerza modo --evaluate-only porque no hay acceso a BD.")
+            args.evaluate_only = True
+
+    loader = CatalogLoader(json_path=args.catalog_json, xlsx_path=args.catalog_xlsx)
+    fuentes_index = _load_fuentes_index()
+    audit_store = AuditStore()
+    catalog_sources = _build_discovery_catalog(loader, limit=args.limit)
+    runtime_sources = await _evaluate_sources(catalog_sources, audit_store=audit_store, fuentes_index=fuentes_index)
+    _print_evaluation_summary(runtime_sources)
+
+    reports: list[PrecisionReport] = []
+    if not args.evaluate_only:
+        scrapers = _build_scrapers(runtime_sources)
+        log.info("Scrapers ejecutables en este runtime: %s", len(scrapers))
+        reports = await _run_scrapers(scrapers)
+
+    vencidas_cerradas = 0
+    try:
+        with conexion() as conn:
+            vencidas_cerradas = limpiar_vencidas(conn)
+    except Exception as exc:
+        log.warning("No se pudo ejecutar limpiar_vencidas: %s", exc)
+
+    duration_seconds = time.monotonic() - t0
+    if reports:
+        print("\n" + generar_reporte(reports))
+    persistir_corrida(
+        evaluations=runtime_sources,
+        reports=reports,
+        duration_seconds=duration_seconds,
+        vencidas_cerradas=vencidas_cerradas,
     )
-    print(f"Duración: {elapsed:.2f}s")
-    print("=" * 70)
+    if db_enabled:
+        cerrar_pool()
+
+    if not runtime_sources:
+        return 1
+    if args.evaluate_only:
+        return 0
+    if reports and all(report.errores > 0 and (report.guardadas + report.ya_existian) == 0 for report in reports):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(asyncio.run(main()))
+    except KeyboardInterrupt:
+        log.warning("Interrumpido por el usuario")
+        raise SystemExit(130)
