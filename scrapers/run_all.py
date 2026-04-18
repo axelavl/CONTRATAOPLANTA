@@ -115,7 +115,7 @@ def _resolve_fuente_id(institucion: dict[str, Any], evaluation: Any, fuentes_ind
         for item in fuentes_index:
             if (item.get("tipo_plataforma") or "").lower() == "empleospublicos":
                 return item["id"]
-        return 1
+        return None  # fuentes table not yet populated
 
     target_hosts = {
         _host(institucion.get("url_empleo")),
@@ -167,7 +167,51 @@ async def _evaluate_sources(
                 fuente_id = _resolve_fuente_id(source, evaluation, fuentes_index)
                 return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=evaluation)
 
-        runtime_sources = await asyncio.gather(*[_evaluate_one(source) for source in sources])
+        async def _evaluate_one_safe(source: dict[str, Any]) -> RuntimeSource:
+            try:
+                return await asyncio.wait_for(_evaluate_one(source), timeout=45)
+            except (asyncio.TimeoutError, Exception) as e:
+                log.debug("Evaluación abortada para %s: %s", source.get("nombre", "?"), e)
+                from scrapers.evaluation.models import (
+                    Availability, PageType, JobRelevance, OpenCallsStatus,
+                    ValidityStatus, Decision, RetryPolicy,
+                )
+                from scrapers.evaluation.source_evaluator import SourceEvaluator as _SE
+                fallback = _SE._make_result(  # type: ignore[attr-defined]
+                    source_url=source.get("url_empleo", ""),
+                    availability=Availability.UNREACHABLE,
+                    http_status=0,
+                    page_type=PageType.UNKNOWN,
+                    job_relevance=JobRelevance.UNKNOWN,
+                    open_calls_status=OpenCallsStatus.UNKNOWN,
+                    validity_status=ValidityStatus.UNKNOWN,
+                    decision=Decision.SKIP,
+                    confidence=0.0,
+                    retry_policy=RetryPolicy.PAUSE,
+                ) if False else None
+                if fallback is None:
+                    from scrapers.evaluation.models import EvaluationResult
+                    from datetime import timezone
+                    fallback = EvaluationResult(
+                        source_url=source.get("url_empleo", ""),
+                        availability=Availability.TIMEOUT,
+                        http_status=0,
+                        page_type=PageType.UNKNOWN_PAGE_TYPE,
+                        job_relevance=JobRelevance.UNCERTAIN,
+                        open_calls_status=OpenCallsStatus.UNKNOWN_STATUS,
+                        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+                        recommended_extractor=None,
+                        decision=Decision.SKIP,
+                        reason_code=None,
+                        reason_detail=f"Timeout o error: {str(e)[:120]}",
+                        confidence=0.0,
+                        retry_policy=RetryPolicy.EVENTUAL,
+                        signals_json={},
+                        evaluated_at=datetime.now(tz=timezone.utc),
+                    )
+                return RuntimeSource(institucion=source, fuente_id=None, evaluation=fallback)
+
+        runtime_sources = await asyncio.gather(*[_evaluate_one_safe(source) for source in sources])
 
     # Persistir evaluaciones con conexión directa limpia (evita estado sucio del pool)
     import os

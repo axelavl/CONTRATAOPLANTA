@@ -991,7 +991,7 @@ class HttpClient:
                             continue
                         if resp.status in (403, 503):
                             log.warning("HTTP %s en %s (intento %s)", resp.status, url, intento)
-                            body_text = await resp.text()
+                            body_text = await resp.text(errors="replace")
                             if intento < self._intentos:
                                 await self._backoff(intento)
                                 continue
@@ -1004,7 +1004,7 @@ class HttpClient:
                             )
                         if resp.status >= 400:
                             log.warning("HTTP %s en %s — no reintentable", resp.status, url)
-                            body_text = await resp.text()
+                            body_text = await resp.text(errors="replace")
                             return HttpFetchResult(
                                 url=url,
                                 final_url=str(resp.url),
@@ -1022,7 +1022,7 @@ class HttpClient:
                                 headers=dict(resp.headers),
                                 json_data=json_data,
                             )
-                        body_text = await resp.text()
+                        body_text = await resp.text(errors="replace")
                         return HttpFetchResult(
                             url=url,
                             final_url=str(resp.url),
