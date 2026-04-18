@@ -567,3 +567,79 @@ body, .hero, .buscador-wrap, .oferta-card, .widget, .filtro-tag, .ribbon {
     transition: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MODAL DETALLE DE OFERTA · más compacto y con CTA sticky
+   ══════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  padding: 16px;
+}
+.modal {
+  max-width: 720px;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  padding: 16px 20px;
+  flex-shrink: 0;
+}
+.modal-body {
+  padding: 18px 22px 12px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+.modal-seccion { margin-bottom: 18px; }
+
+/* KPIs más compactos */
+.modal-body .kpis-grid,
+.modal-body .modal-kpis {
+  gap: 8px !important;
+}
+.modal-body .kpi,
+.modal-body .modal-kpi {
+  padding: 10px 14px !important;
+}
+
+/* CTA principal STICKY al final del modal, siempre visible */
+.modal-cta-footer,
+.modal-acciones-principales,
+.modal-acciones,
+.ig-modal-acciones {
+  position: sticky;
+  bottom: 0;
+  background: var(--blanco);
+  border-top: 1px solid var(--borde);
+  padding: 14px 22px 16px !important;
+  margin-top: 0 !important;
+  z-index: 5;
+  box-shadow: 0 -8px 16px rgba(10, 46, 110, 0.04);
+}
+:root[data-theme="dark"] .modal-cta-footer,
+:root[data-theme="dark"] .modal-acciones-principales,
+:root[data-theme="dark"] .modal-acciones,
+:root[data-theme="dark"] .ig-modal-acciones {
+  background: var(--blanco);
+  border-top-color: var(--borde);
+}
+
+/* Botón principal más compacto */
+.btn-modal-primary {
+  height: 46px !important;
+  font-size: 14.5px !important;
+  border-radius: 10px !important;
+}
+
+/* Alertas dentro del modal (Cierra pronto) más compactas */
+.modal-body .oferta-alerta,
+.modal-body .alerta-urgencia,
+.modal-body .deadline-banner {
+  padding: 10px 14px !important;
+  margin-bottom: 14px !important;
+}
+
+@media (max-width: 600px) {
+  .modal { max-height: 100vh; border-radius: 0; }
+  .modal-overlay { padding: 0; }
+  .modal-body { padding: 14px 16px 10px; }
+}

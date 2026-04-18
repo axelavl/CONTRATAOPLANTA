@@ -121,6 +121,19 @@
     return ids.every(function (id) { return isFilled(getRibbonSlot(id)); });
   }
 
+  function hideActualizadoIfEmpty() {
+    // Si a los 10 segundos no tenemos fecha, ocultamos el item.
+    var el = getRibbonSlot('ribbon-actualizado');
+    if (!el) return;
+    if (!isFilled(el)) {
+      var item = el.closest('.ribbon-item');
+      if (item) {
+        item.style.display = 'none';
+        log('ocultando item actualizado (sin fecha disponible)');
+      }
+    }
+  }
+
   function init() {
     if (!document.querySelector('.ribbon')) {
       log('no .ribbon on page, skipping');
@@ -145,6 +158,9 @@
 
     // Fetch paralelo al API para cierran_hoy y fallback
     fetchAndFill();
+
+    // Si tras 10 seg no se llenó "Actualizado hace", ocultar ese item
+    setTimeout(hideActualizadoIfEmpty, 10000);
   }
 
   // Múltiples triggers para máxima robustez
