@@ -643,3 +643,182 @@ body, .hero, .buscador-wrap, .oferta-card, .widget, .filtro-tag, .ribbon {
   .modal-overlay { padding: 0; }
   .modal-body { padding: 14px 16px 10px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   AJUSTES POST-DEPLOY · legibilidad dark mode y layout
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 1) Badges de tipo de contrato con mejor contraste en DARK */
+:root[data-theme="dark"] .badge-planta {
+  background: rgba(127, 169, 221, 0.16);
+  color: #A5B8DF;
+}
+:root[data-theme="dark"] .badge-contrata {
+  background: rgba(234, 184, 88, 0.18);
+  color: var(--acento);
+}
+:root[data-theme="dark"] .badge-honorarios {
+  background: rgba(236, 72, 153, 0.16);
+  color: #F5A3C7;
+}
+:root[data-theme="dark"] .badge-codigo {
+  background: rgba(14, 165, 233, 0.16);
+  color: #7DC8EC;
+}
+:root[data-theme="dark"] .badge-otro {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--texto2);
+}
+:root[data-theme="dark"] .badge-sin-dato {
+  background: transparent;
+  color: var(--texto3);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .badge-region {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--texto2);
+  border-color: var(--borde);
+}
+
+/* 2) Chips neutros (Región, Sector como tags) mucho más legibles en DARK */
+:root[data-theme="dark"] .tag.tag--neutral,
+:root[data-theme="dark"] .badge.badge--neutral {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--texto);
+}
+
+/* 3) "Publicada hace X" y tags de frescura */
+:root[data-theme="dark"] .oferta-frescura,
+:root[data-theme="dark"] .frescura-chip,
+:root[data-theme="dark"] .badge-frescura {
+  background: rgba(234, 184, 88, 0.15);
+  color: var(--acento);
+  border: none;
+}
+
+/* 4) Tags de "Nueva · hace X días" mejor contraste (verde) */
+:root[data-theme="dark"] .tag-nueva,
+:root[data-theme="dark"] .oferta-nueva {
+  background: rgba(143, 205, 165, 0.18);
+  color: var(--verde);
+}
+
+/* 5) Stats pills del hero — asegurar visibilidad en ambos modos */
+.hero-stat-pill strong {
+  color: var(--navy);
+}
+:root[data-theme="dark"] .hero-stat-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--texto2);
+}
+:root[data-theme="dark"] .hero-stat-pill strong {
+  color: var(--acento);
+}
+
+/* 6) Widget "Alertas de empleo" con borde y título destacado en dark */
+:root[data-theme="dark"] .widget {
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+:root[data-theme="dark"] .widget-titulo { color: var(--acento); }
+:root[data-theme="dark"] .alerta-form input,
+:root[data-theme="dark"] .alerta-form select {
+  background: var(--bg);
+  color: var(--texto);
+  border-color: var(--borde);
+}
+
+/* 7) "PUBLICIDAD" placeholder — ocultar con selectores más agresivos */
+.ad-slot-resultados,
+.ad-slot-sidebar,
+.ad-slot {
+  /* Si el slot no tiene hijos significativos (solo el span "PUBLICIDAD"), ocultarlo */
+}
+.ad-slot-resultados .ad-slot-inner:only-child,
+.ad-slot-sidebar .ad-slot-inner:only-child {
+  display: none;
+}
+.ad-slot-resultados:not(:has(iframe, img, a)),
+.ad-slot-sidebar:not(:has(iframe, img, a)),
+.ad-slot:not(:has(iframe, img, a)) {
+  display: none !important;
+}
+
+/* 8) Mejorar contraste global de texto muted en dark */
+:root[data-theme="dark"] .oferta-meta-linea,
+:root[data-theme="dark"] .oferta-region,
+:root[data-theme="dark"] .oferta-ciudad,
+:root[data-theme="dark"] .oferta-jornada {
+  color: var(--texto2);
+}
+
+/* 9) "Cierra mañana" / "Cierra en X días" — indicadores de urgencia */
+:root[data-theme="dark"] .oferta-deadline,
+:root[data-theme="dark"] .oferta-plazo {
+  color: var(--texto);
+}
+:root[data-theme="dark"] .oferta-deadline--urgente,
+:root[data-theme="dark"] .oferta-plazo--urgente {
+  color: #F5A98E;
+}
+
+/* 10) Renta y precios — mayor peso visual en dark */
+:root[data-theme="dark"] .oferta-renta,
+:root[data-theme="dark"] .oferta-monto {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+/* 11) Pestañas "Vigentes/Cerradas" — el slider gold más notorio en dark */
+:root[data-theme="dark"] .estado-listado-tabs::before {
+  background: var(--acento);
+}
+:root[data-theme="dark"] .estado-tab.activo { color: var(--azul); }
+
+/* 12) Paginación — mejor contraste botones */
+:root[data-theme="dark"] .paginacion button,
+:root[data-theme="dark"] .paginacion a {
+  background: var(--blanco);
+  border-color: var(--borde);
+  color: var(--texto2);
+}
+:root[data-theme="dark"] .paginacion button:hover,
+:root[data-theme="dark"] .paginacion a:hover {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+:root[data-theme="dark"] .paginacion button.activo,
+:root[data-theme="dark"] .paginacion a.activo {
+  background: var(--acento);
+  color: var(--azul);
+  border-color: var(--acento);
+}
+
+/* 13) "Última actualización de datos" en light/dark */
+.data-update-global { color: var(--texto2); }
+.data-update-global strong { color: var(--texto); font-weight: 600; }
+:root[data-theme="dark"] .data-update-global { color: var(--texto2); }
+:root[data-theme="dark"] .data-update-global strong { color: var(--acento); }
+
+/* 14) Fav icon heart en dark con mejor visibilidad */
+:root[data-theme="dark"] .btn-fav-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--texto2);
+}
+:root[data-theme="dark"] .btn-fav-card:hover,
+:root[data-theme="dark"] .btn-fav-card.activo {
+  background: rgba(235, 138, 117, 0.15);
+  border-color: var(--rojo);
+  color: var(--rojo);
+}
+
+/* 15) Oferta-logo (avatar) — fondo apropiado en dark */
+:root[data-theme="dark"] .oferta-logo {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .oferta-logo img { background: rgba(255, 255, 255, 0.9); }
