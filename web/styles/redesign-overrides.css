@@ -411,7 +411,7 @@
   padding: 8px 24px;
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -420,10 +420,22 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  position: relative;
+}
+/* Separador visual entre items */
+.ribbon-item + .ribbon-item::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(244, 241, 232, 0.25);
+  margin-right: 14px;
 }
 .ribbon-item strong {
   color: #F2C26A;
   font-weight: 600;
+  margin: 0 2px;
 }
 .ribbon-dot {
   width: 7px; height: 7px;
