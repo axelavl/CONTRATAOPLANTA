@@ -225,6 +225,7 @@
         <a class="share-btn share-btn--fb"   id="psb-fb"   target="_blank" rel="noopener" title="Facebook"  aria-label="Compartir búsqueda en Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
         <a class="share-btn share-btn--x"    id="psb-x"    target="_blank" rel="noopener" title="X"         aria-label="Compartir búsqueda en X"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
         <a class="share-btn share-btn--mail" id="psb-mail" title="Email" aria-label="Compartir búsqueda por email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></a>
+        <button class="share-btn share-btn--copy" id="psb-copy" type="button" onclick="copiarUrlBusqueda(this)" aria-label="Copiar enlace de esta búsqueda">Copiar enlace</button>
       </div>
       <button class="popover-share-cerrar" type="button" onclick="cerrarCompartirBusqueda()" aria-label="Cerrar">×</button>
     </div>
@@ -655,15 +656,18 @@ function _ordenInicial(prefs) {
   return prefs.orden || 'recientes';
 }
 
+const TIPOS_POR_DEFECTO = ['planta','contrata','honorarios','codigo_trabajo','otro','no_informa'];
+const ORDEN_POR_DEFECTO = _ordenInicial(_prefs);
+
 const estado = {
   pagina: 1,
   q: '',
   region: '',
   sector: '',
-  tipos: ['planta','contrata','honorarios','codigo_trabajo','otro','no_informa'],
+  tipos: [...TIPOS_POR_DEFECTO],
   cierra_pronto: false,
   nuevas: false,
-  orden:        _ordenInicial(_prefs),
+  orden:        ORDEN_POR_DEFECTO,
   por_pagina:   _prefs.por_pagina || POR_PAGINA_CONFIG[_prefs.vista || 'cards']?.porDefecto || 20,
   vista:        _prefs.vista      || 'cards',
   institucion_id: null,
@@ -2893,7 +2897,7 @@ document.getElementById('bases-viewer')?.addEventListener('click', (e) => {
 function construirUrlBusqueda() {
   const url = new URL(window.location.href);
   // Limpiar params previos
-  ['q','region','sector','tipos','pagina','ciudad','renta_min','institucion','orden'].forEach(k => url.searchParams.delete(k));
+  ['q','region','sector','tipos','pagina','ciudad','renta_min','institucion','orden','cierra_pronto','nuevas','vista'].forEach(k => url.searchParams.delete(k));
   const setOrDel = (k, v) => {
     if (v === null || v === undefined || v === '' || v === false ||
         (Array.isArray(v) && v.length === 0)) return;
@@ -2906,7 +2910,10 @@ function construirUrlBusqueda() {
   setOrDel('ciudad', estado.ciudad);
   setOrDel('renta_min', estado.renta_min);
   setOrDel('institucion', estado.institucion_id);
-  setOrDel('orden', estado.orden && estado.orden !== ORDEN_SHARE_DEFAULT ? estado.orden : '');
+  setOrDel('orden', estado.orden);
+  setOrDel('cierra_pronto', estado.cierra_pronto && estado.vista_listado === 'vigentes' ? 'true' : '');
+  setOrDel('nuevas', estado.nuevas ? 'true' : '');
+  setOrDel('vista', estado.vista_listado !== 'vigentes' ? estado.vista_listado : '');
   setOrDel('pagina', estado.pagina > 1 ? estado.pagina : '');
   return url.toString();
 }
@@ -2927,11 +2934,33 @@ function sincronizarURL() {
     setOrDel('region', estado.region);
     setOrDel('sector', estado.sector);
     setOrDel('tipos', estado.tipos);
+    setOrDel('ciudad', estado.ciudad);
+    setOrDel('renta_min', estado.renta_min);
+    setOrDel('institucion', estado.institucion_id);
+    setOrDel('orden', estado.orden);
+    setOrDel('cierra_pronto', estado.cierra_pronto && estado.vista_listado === 'vigentes' ? 'true' : '');
+    setOrDel('nuevas', estado.nuevas ? 'true' : '');
+    setOrDel('vista', estado.vista_listado !== 'vigentes' ? estado.vista_listado : '');
     setOrDel('pagina', estado.pagina > 1 ? estado.pagina : '');
     window.history.replaceState(null, '', url.toString());
   } catch { /* ignorar */ }
 }
 
+// ¿Hay filtros activos que valgan la pena compartir?
+function _tiposIguales(a = [], b = []) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  const as = [...a].sort().join('|');
+  const bs = [...b].sort().join('|');
+  return as === bs;
+}
+
+function hayFiltrosActivos() {
+  const tiposFiltran = Array.isArray(estado.tipos) && !_tiposIguales(estado.tipos, TIPOS_POR_DEFECTO);
+  return Boolean(
+    estado.q?.trim() || estado.region || estado.sector || estado.ciudad ||
+    estado.renta_min || estado.institucion_id || estado.cierra_pronto || estado.nuevas ||
+    estado.vista_listado !== 'vigentes' || estado.orden !== ORDEN_POR_DEFECTO ||
+    tiposFiltran
 function _tiposEsDefault(tipos = []) {
   if (!Array.isArray(tipos) || tipos.length !== TIPOS_POR_DEFECTO.length) return false;
   return [...tipos].sort().join(',') === [...TIPOS_POR_DEFECTO].sort().join(',');
@@ -2968,6 +2997,18 @@ function _resumenFiltros() {
   return partes.length
     ? `Empleos públicos: ${partes.join(' · ')}`
     : 'Empleos públicos en Chile';
+}
+
+function compartirBusquedaContextual(btnRef) {
+  if (!hayFiltrosActivos()) return;
+  const url = construirUrlBusqueda();
+  const titulo = _resumenFiltros();
+  if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    try { window.umami?.track?.('share-busqueda', { red: 'nativo' }); } catch { /* noop */ }
+    navigator.share({ title: titulo, text: titulo, url }).catch(() => {});
+    return;
+  }
+  abrirCompartirBusqueda(btnRef);
 }
 
 function abrirCompartirBusqueda(btnRef) {
@@ -3008,16 +3049,39 @@ function abrirCompartirBusqueda(btnRef) {
   setHref('psb-x',    `https://twitter.com/intent/tweet?text=${enc(titulo)}&url=${enc(url)}`,   'x');
   setHref('psb-mail', `mailto:?subject=${enc(titulo)}&body=${enc(titulo + '\n\n' + url)}`,      'email');
   pop.hidden = false;
-  // Si hay Web Share nativo en móvil, ofrecerlo de forma directa también.
-  if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    track('nativo');
-    navigator.share({ title: titulo, text: titulo, url }).catch(() => {});
-  }
 }
+
 
 function cerrarCompartirBusqueda() {
   const pop = document.getElementById('popover-compartir-busqueda');
   if (pop) pop.hidden = true;
+}
+
+async function copiarUrlBusqueda(btnRef) {
+  const btn = btnRef || document.getElementById('btn-compartir-busqueda');
+  if (!btn) return;
+  const url = construirUrlBusqueda();
+  const textoOrig = btn.dataset.textoOrig || btn.textContent;
+  btn.dataset.textoOrig = textoOrig;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      window.prompt('Copia este enlace:', url);
+    }
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('btn-copiar-ok');
+    btn.classList.add('is-copied');
+  } catch {
+    window.prompt('Copia este enlace:', url);
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('is-copied');
+  }
+  setTimeout(() => {
+    btn.textContent = textoOrig;
+    btn.classList.remove('btn-copiar-ok');
+    btn.classList.remove('is-copied');
+  }, 2000);
 }
 
 function restaurarFiltrosDesdeURL() {
@@ -3046,6 +3110,39 @@ function restaurarFiltrosDesdeURL() {
         if (match) btn.classList.toggle('activo', estado.tipos.includes(match[1]));
       });
     }
+    if (params.has('institucion')) {
+      estado.institucion_id = params.get('institucion') || null;
+    }
+    if (params.has('ciudad')) {
+      estado.ciudad = params.get('ciudad') || '';
+      const sel = document.getElementById('filtro-ciudad');
+      if (sel) sel.value = estado.ciudad;
+    }
+    if (params.has('renta_min')) {
+      const renta = Number(params.get('renta_min'));
+      if (!Number.isNaN(renta) && renta > 0) {
+        estado.renta_min = renta;
+        const inputRenta = document.getElementById('filtro-renta-min');
+        if (inputRenta) inputRenta.value = formatearMilesCL(String(renta));
+      }
+    }
+    if (params.has('orden')) {
+      estado.orden = params.get('orden') || ORDEN_POR_DEFECTO;
+      const selOrden = document.getElementById('ctrl-orden');
+      if (selOrden) selOrden.value = estado.orden;
+    }
+    estado.cierra_pronto = params.get('cierra_pronto') === 'true';
+    estado.nuevas = params.get('nuevas') === 'true';
+    if (params.has('vista')) {
+      const vista = params.get('vista');
+      if (vista === 'cerradas' || vista === 'vigentes') estado.vista_listado = vista;
+    }
+    document.querySelector('.filtro-tag[onclick*="cierra-hoy"]')?.classList.toggle('activo', estado.cierra_pronto);
+    document.querySelector('.filtro-tag[onclick*="nuevos"]')?.classList.toggle('activo', estado.nuevas);
+    document.getElementById('estado-listado-tabs')?.setAttribute('data-estado', estado.vista_listado);
+    document.getElementById('tab-vigentes')?.classList.toggle('activo', estado.vista_listado === 'vigentes');
+    document.getElementById('tab-cerradas')?.classList.toggle('activo', estado.vista_listado === 'cerradas');
+
     if (params.has('pagina')) {
       const p = parseInt(params.get('pagina'), 10);
       if (!isNaN(p) && p > 0) estado.pagina = p;
