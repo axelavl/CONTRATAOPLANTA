@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import html
 import json
 import logging
@@ -107,7 +108,14 @@ OFFER_STATUS_SQL = (
     "END"
 )
 ACTIVE_OFFER_SQL = f"{OFFER_STATUS_SQL} IN ('active', 'closing_today')"
-SITE_URL = (os.getenv("SITE_URL", "https://contrataoplanta.cl") or "https://contrataoplanta.cl").rstrip("/")
+# Dominio público del frontend. Los dominios de marca históricos
+# (contrataoplanta.cl / estadoemplea.cl / empleoestado.cl) ya no resuelven
+# en DNS — si se filtran a un og:image o og:url, el crawler recibe NXDOMAIN
+# y el unfurl no se renderiza. Apuntamos a Cloudflare Pages por defecto.
+SITE_URL = (
+    os.getenv("SITE_URL", "https://estadoemplea.pages.dev")
+    or "https://estadoemplea.pages.dev"
+).rstrip("/")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "estadoemplea2026")
 # ADMIN_PATH: prefijo secreto de las rutas de administración.
 # Configura esta variable en Railway para ocultar el punto de entrada.
@@ -812,11 +820,17 @@ def render_index_with_meta(meta: dict[str, str], *, oferta_id_for_bootstrap: int
     html_doc = _set_meta(html_doc, "og:description", meta["description"], attr="property")
     html_doc = _set_meta(html_doc, "og:url", meta["canonical"], attr="property")
     html_doc = _set_meta(html_doc, "og:image", meta["og_image"], attr="property")
+    # Hints explícitos: algunos crawlers (WhatsApp, Slack) fallan a summary
+    # pequeño si no encuentran dimensiones declaradas.
+    html_doc = _set_meta(html_doc, "og:image:width", "1200", attr="property")
+    html_doc = _set_meta(html_doc, "og:image:height", "630", attr="property")
+    html_doc = _set_meta(html_doc, "og:image:alt", meta["title"], attr="property")
     html_doc = _set_meta(html_doc, "og:type", "website", attr="property")
     html_doc = _set_meta(html_doc, "twitter:card", "summary_large_image", attr="name")
     html_doc = _set_meta(html_doc, "twitter:title", meta["title"], attr="name")
     html_doc = _set_meta(html_doc, "twitter:description", meta["description"], attr="name")
     html_doc = _set_meta(html_doc, "twitter:image", meta["og_image"], attr="name")
+    html_doc = _set_meta(html_doc, "twitter:image:alt", meta["title"], attr="name")
     html_doc = _set_canonical(html_doc, meta["canonical"])
     html_doc = _inject_offer_path_bootstrap(html_doc, oferta_id_for_bootstrap)
     return html_doc
@@ -955,12 +969,29 @@ def get_oferta(oferta_id: int) -> dict[str, Any]:
     return serialize_offer(row)
 
 
-@app.get("/api/og/{oferta_id}.png")
-def og_image_oferta(oferta_id: int) -> Response:
-    """Imagen OG/Twitter dinámica (1200x630 PNG) para una oferta concreta.
+# Versión del renderer. Se incluye en el ETag para invalidar cachés de CDN
+# cuando cambiamos el layout de la tarjeta.
+_OG_RENDERER_VERSION = "v2"
 
-    Sirve también como activo descargable para que el usuario pueda
-    subirlo a Instagram (Stories o feed) ya que esa red no acepta links.
+
+@app.get("/api/og/{oferta_id}.png")
+def og_image_oferta(
+    oferta_id: int,
+    request: Request,
+    format: str = Query("horizontal", pattern="^(horizontal|square)$"),
+) -> Response:
+    """Imagen OG/Twitter/RRSS dinámica para una oferta concreta.
+
+    - ``format=horizontal`` (default) → 1200x630 Open Graph / Twitter card,
+      apto para WhatsApp, LinkedIn, Facebook y X.
+    - ``format=square`` → 1080x1080, pensado para Instagram (stories/feed)
+      y mensajería cuadrada. Se puede descargar como activo desde el modal
+      "Compartir en Instagram" del frontend.
+
+    Responde con `Cache-Control` agresivo y un ETag compuesto por la versión
+    del renderer, el formato y la última actualización de la oferta — así el
+    CDN (Cloudflare Pages / Railway) puede revalidar con 304 cuando la oferta
+    no ha cambiado.
     """
     sql = f"""
     WITH base AS (
@@ -974,15 +1005,35 @@ def og_image_oferta(oferta_id: int) -> Response:
     if not row:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
     oferta = serialize_offer(row)
+
+    # ETag derivado del estado mutable de la oferta: cuando la institución
+    # actualiza la oferta o cambia el estado (active → closing_today →
+    # closed) el cliente debe revalidar. `dias_restantes` cambia día a día
+    # pero el Cache-Control de max-age=86400 cubre ese ciclo.
+    actualizado = oferta.get("fecha_actualizado") or oferta.get("fecha_scraped")
+    etag_seed = f"{_OG_RENDERER_VERSION}:{format}:{oferta_id}:{actualizado}:{oferta.get('estado')}"
+    etag = '"' + hashlib.md5(etag_seed.encode("utf-8")).hexdigest() + '"'
+
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+
     try:
         from api.services.og_image import render_offer_card
-        png = render_offer_card(oferta)
+        png = render_offer_card(oferta, fmt=format)  # type: ignore[arg-type]
     except ImportError as exc:  # Pillow no instalado
         raise HTTPException(status_code=503, detail=f"Generador OG no disponible: {exc}") from exc
+
+    filename = f"oferta-{oferta_id}-{format}.png"
     return Response(
         content=png,
         media_type="image/png",
-        headers={"Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"},
+        headers={
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+            "ETag": etag,
+            # Permite que el modal "Descargar imagen" del frontend guarde
+            # directamente con un nombre descriptivo.
+            "Content-Disposition": f'inline; filename="{filename}"',
+        },
     )
 
 

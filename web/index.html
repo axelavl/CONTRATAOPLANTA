@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>(function(){try{var t=localStorage.getItem('theme');var p=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.setAttribute('data-theme',t||(p?'dark':'light'));}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>document.documentElement.classList.add('js-nav');</script>
@@ -24,7 +25,7 @@
 <meta name="twitter:image" content="https://estadoemplea.pages.dev/og-default.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
 <!-- Analytics deshabilitado: reactivar cuando haya subdominio propio de Umami. -->
 <script type="application/ld+json">
 {
@@ -57,6 +58,7 @@
 }
 </script>
 <link rel="stylesheet" href="styles/index.css">
+<link rel="stylesheet" href="styles/redesign-overrides.css">
 <script defer src="shared-shell.js"></script>
 <script defer src="nav-mobile.js"></script>
 </head>
@@ -65,6 +67,7 @@
 
 
 <!-- ══ NAVBAR ══════════════════════════════════════════════════════ -->
+<div id="site-ribbon"></div>
 <div id="site-header"></div>
 
 <main id="contenido-principal">
@@ -496,6 +499,9 @@
         <a class="share-btn share-btn--li" id="share-li" target="_blank" rel="noopener" title="LinkedIn" aria-label="Compartir en LinkedIn">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
         </a>
+        <button class="share-btn share-btn--ig" id="share-ig" type="button" title="Instagram" aria-label="Compartir en Instagram (descargar imagen)">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.8.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.5 1 .5.5.8.9 1 1.5.2.4.4 1.1.4 2.2.1 1.2.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-1 1.5-.5.5-.9.8-1.5 1-.4.2-1.1.4-2.2.4-1.2.1-1.6.1-4.8.1s-3.6 0-4.8-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.5-1-.5-.5-.8-.9-1-1.5-.2-.4-.4-1.1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.8c.1-1.2.2-1.8.4-2.2.2-.6.5-1 1-1.5.5-.5.9-.8 1.5-1 .4-.2 1.1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 2c-3.1 0-3.5 0-4.7.1-1 .1-1.6.2-1.9.3-.5.2-.8.4-1.2.8-.3.3-.6.7-.8 1.2-.1.3-.3.9-.3 1.9-.1 1.2-.1 1.6-.1 4.7s0 3.5.1 4.7c.1 1 .2 1.6.3 1.9.2.5.4.8.8 1.2.3.3.7.6 1.2.8.3.1.9.3 1.9.3 1.2.1 1.6.1 4.7.1s3.5 0 4.7-.1c1-.1 1.6-.2 1.9-.3.5-.2.8-.4 1.2-.8.3-.3.6-.7.8-1.2.1-.3.3-.9.3-1.9.1-1.2.1-1.6.1-4.7s0-3.5-.1-4.7c-.1-1-.2-1.6-.3-1.9-.2-.5-.4-.8-.8-1.2-.3-.3-.7-.6-1.2-.8-.3-.1-.9-.3-1.9-.3-1.2-.1-1.6-.1-4.7-.1zm0 3.4a4.4 4.4 0 1 1 0 8.8 4.4 4.4 0 0 1 0-8.8zm0 2a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm5.6-2.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
+        </button>
         <button class="share-btn share-btn--copy" id="share-copy" type="button" title="Copiar enlace" aria-label="Copiar enlace">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
@@ -538,23 +544,54 @@
   </div>
 </div>
 
-<!-- ══ MODAL INSTAGRAM ════════════════════════════════════════════ -->
+<!-- ══ MODAL DE COMPARTIR (preview + imagen + link) ═══════════════════
+     Este modal vive oculto por defecto y sólo se abre cuando el usuario
+     dispara explícitamente el flujo de compartir (botón Instagram, por
+     ahora; se puede extender a otras RRSS). Muestra la imagen OG/IG que
+     verán los contactos + el título de la oferta + el enlace con copy.
+     Lo llamábamos `ig-modal` por historia; hoy cubre toda variante que
+     necesite preview + descarga + copiar enlace. ─────────────────────── -->
 <div id="ig-modal" class="ig-modal" role="dialog" aria-modal="true" aria-labelledby="ig-titulo" hidden>
   <div class="ig-modal-caja">
     <button class="ig-modal-cerrar" type="button" aria-label="Cerrar" onclick="cerrarIG()">×</button>
-    <div class="ig-modal-titulo" id="ig-titulo">Compartir en Instagram</div>
-    <p class="ig-modal-texto">
-      Instagram no permite compartir enlaces desde la web. Tienes tres opciones:
-    </p>
-    <ol class="ig-modal-lista">
-      <li><strong>Descarga la imagen</strong> de la oferta y súbela a tu historia o publicación.</li>
-      <li><strong>Copia el enlace</strong> y pégalo en tu biografía o como sticker en una historia.</li>
-      <li><strong>Abre Instagram en tu móvil</strong> y usa el botón de compartir nativo desde esta página.</li>
-    </ol>
+    <div class="ig-modal-titulo" id="ig-titulo">Compartir oferta</div>
+
+    <!-- Preview de la imagen que se va a compartir (1080×1080 IG por
+         defecto; el usuario puede alternar a OG 1200×630). -->
+    <figure class="share-preview" id="share-preview">
+      <div class="share-preview-frame" id="share-preview-frame">
+        <img id="share-preview-img" alt="Previsualización de la oferta para redes sociales" loading="lazy" decoding="async">
+        <div class="share-preview-estado" id="share-preview-estado">Generando imagen…</div>
+      </div>
+      <div class="share-preview-switch" role="tablist" aria-label="Formato de imagen">
+        <button type="button" role="tab" class="share-preview-switch-btn is-active" data-fmt="square" id="share-switch-square">Cuadrada (IG)</button>
+        <button type="button" role="tab" class="share-preview-switch-btn" data-fmt="horizontal" id="share-switch-horizontal">Horizontal (OG)</button>
+      </div>
+    </figure>
+
+    <!-- Título de la oferta para contexto (el mismo que verá el contacto
+         al recibir el enlace). -->
+    <div class="share-meta">
+      <div class="share-meta-kicker" id="share-meta-institucion">Institución</div>
+      <div class="share-meta-titulo" id="share-meta-cargo">Oferta</div>
+    </div>
+
+    <!-- Enlace con botón de copiar — se comparte junto a la imagen. -->
+    <div class="share-link" role="group" aria-label="Enlace de la oferta">
+      <input type="text" class="share-link-input" id="share-link-input" readonly value="">
+      <button type="button" class="share-link-copy" id="share-link-copy">📋 Copiar</button>
+    </div>
+
+    <!-- Acciones principales: descargar imagen (para IG/stories) y abrir
+         WhatsApp/LinkedIn con el enlace ya formateado. -->
     <div class="ig-modal-acciones">
       <a class="ig-btn ig-btn--primary" id="ig-descargar" download>⬇ Descargar imagen</a>
-      <button class="ig-btn ig-btn--sec" id="ig-copiar" type="button">📋 Copiar enlace</button>
+      <a class="ig-btn ig-btn--wa" id="ig-whatsapp" target="_blank" rel="noopener">Compartir por WhatsApp</a>
     </div>
+    <p class="ig-modal-nota">
+      Instagram no permite compartir enlaces desde la web. Descarga la imagen
+      y súbela a tu historia o publicación pegando el enlace en la biografía.
+    </p>
   </div>
 </div>
 
@@ -2511,6 +2548,15 @@ function urlDeepLinkOferta(oferta) {
   return url.toString();
 }
 
+// URL absoluta a la imagen OG dinámica de la oferta (servida por el API).
+// El backend responde con Cache-Control agresivo + ETag, así que las
+// revisitas son baratas; el browser cachea por días.
+function urlImagenOG(ofertaId, formato) {
+  const base = API_BASE_ACTIVA || API_BASE || RAILWAY_BACKEND;
+  const fmt = formato === 'square' ? 'square' : 'horizontal';
+  return `${base}/api/og/${ofertaId}.png?format=${fmt}`;
+}
+
 function configurarCompartir(oferta) {
   const url = urlDeepLinkOferta(oferta);
   const titulo = normalizarTituloOferta(oferta.cargo) || 'Oferta laboral';
@@ -2531,6 +2577,17 @@ function configurarCompartir(oferta) {
   if (btnLi) {
     btnLi.href = `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}`;
     btnLi.onclick = () => track('linkedin');
+  }
+
+  // Instagram abre nuestro modal de "preview + descargar + copiar enlace".
+  // Ese mismo modal se carga sólo cuando el usuario decide compartir —
+  // nunca está visible por defecto en el modal de detalle.
+  const btnIg = document.getElementById('share-ig');
+  if (btnIg) {
+    btnIg.onclick = () => {
+      track('instagram');
+      abrirIG(oferta, url);
+    };
   }
 
   const btnCopy = document.getElementById('share-copy');
@@ -2655,21 +2712,104 @@ function cerrarQR() {
   document.body.style.overflow = '';
 }
 
-// ── Modal Instagram (explicación + descarga de imagen) ──
-function abrirIG(oferta, url, ogUrl) {
+// ── Modal "Compartir oferta" (preview + descarga + enlace) ──
+// Se invoca sólo cuando el usuario decide compartir (botón Instagram, o a
+// futuro otros triggers). Muestra la imagen OG/IG que verán los contactos,
+// el título/institución y un input con el enlace listo para copiar.
+//
+// El parámetro legacy `ogUrl` ya no se usa — el modal deriva ambas URLs
+// (1080x1080 y 1200x630) a partir del `oferta.id` y alterna entre ellas
+// con los botones de formato.
+function abrirIG(oferta, url /* legacy: ogUrl */) {
   const modal = document.getElementById('ig-modal');
   const dl = document.getElementById('ig-descargar');
-  const cp = document.getElementById('ig-copiar');
-  dl.href = ogUrl;
-  dl.setAttribute('download', `oferta-${oferta.id}.png`);
-  cp.classList.remove('is-copied');
-  cp.textContent = '📋 Copiar enlace';
-  cp.onclick = async () => {
-    try { await navigator.clipboard.writeText(url); }
-    catch { prompt('Copia este enlace:', url); return; }
-    cp.classList.add('is-copied');
-    cp.textContent = '✓ Copiado';
+  const wa = document.getElementById('ig-whatsapp');
+  const img = document.getElementById('share-preview-img');
+  const frame = document.getElementById('share-preview-frame');
+  const estado = document.getElementById('share-preview-estado');
+  const kicker = document.getElementById('share-meta-institucion');
+  const titulo = document.getElementById('share-meta-cargo');
+  const linkInput = document.getElementById('share-link-input');
+  const linkCopy = document.getElementById('share-link-copy');
+  const swSq = document.getElementById('share-switch-square');
+  const swHz = document.getElementById('share-switch-horizontal');
+
+  // Metadatos de la oferta para contexto.
+  if (kicker) kicker.textContent = oferta.institucion || 'Institución pública';
+  if (titulo) {
+    const t = normalizarTituloOferta(oferta.cargo) || oferta.cargo || 'Oferta laboral';
+    titulo.textContent = t;
+  }
+  if (linkInput) linkInput.value = url;
+
+  // WhatsApp share con texto precompuesto + link.
+  if (wa) {
+    const texto = `${(oferta.cargo || 'Oferta laboral')} — ${(oferta.institucion || 'Institución pública')}`;
+    wa.href = `https://wa.me/?text=${encodeURIComponent(texto + ' ' + url)}`;
+  }
+
+  // Carga de preview con switch de formato (square por defecto: el caso
+  // de uso principal es Instagram / mensajería cuadrada).
+  const urlSquare = urlImagenOG(oferta.id, 'square');
+  const urlHorizontal = urlImagenOG(oferta.id, 'horizontal');
+
+  const aplicar = (fmt) => {
+    const elegido = fmt === 'horizontal' ? urlHorizontal : urlSquare;
+    if (frame) {
+      frame.classList.remove('share-preview-frame--error');
+      frame.classList.add('share-preview-frame--loading');
+      frame.classList.toggle('share-preview-frame--horizontal', fmt === 'horizontal');
+    }
+    if (estado) { estado.hidden = false; estado.textContent = 'Generando imagen…'; }
+    if (img) {
+      img.onload = () => {
+        if (frame) frame.classList.remove('share-preview-frame--loading');
+        if (estado) estado.hidden = true;
+      };
+      img.onerror = () => {
+        if (frame) {
+          frame.classList.remove('share-preview-frame--loading');
+          frame.classList.add('share-preview-frame--error');
+        }
+        if (estado) {
+          estado.hidden = false;
+          estado.textContent = 'No se pudo generar la imagen.';
+        }
+      };
+      img.removeAttribute('src');
+      img.src = elegido;
+    }
+    if (dl) {
+      dl.href = elegido;
+      dl.setAttribute(
+        'download',
+        `oferta-${oferta.id}-${fmt === 'horizontal' ? 'og' : 'instagram'}.png`,
+      );
+    }
+    if (swSq) swSq.classList.toggle('is-active', fmt === 'square');
+    if (swHz) swHz.classList.toggle('is-active', fmt === 'horizontal');
   };
+
+  if (swSq) swSq.onclick = () => aplicar('square');
+  if (swHz) swHz.onclick = () => aplicar('horizontal');
+  aplicar('square');
+
+  // Copia del enlace desde el input dedicado.
+  if (linkCopy) {
+    linkCopy.classList.remove('is-copied');
+    linkCopy.textContent = '📋 Copiar';
+    linkCopy.onclick = async () => {
+      try { await navigator.clipboard.writeText(url); }
+      catch {
+        if (linkInput) { linkInput.select(); linkInput.setSelectionRange(0, 99999); }
+        prompt('Copia este enlace:', url);
+        return;
+      }
+      linkCopy.classList.add('is-copied');
+      linkCopy.textContent = '✓ Copiado';
+    };
+  }
+
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
 }

@@ -1,0 +1,569 @@
+/* ══════════════════════════════════════════════════════════════════════
+   redesign-overrides.css — v3
+   Capa de overrides para aplicar el rediseño visual del home sobre los
+   estilos existentes de index.css. Se carga DESPUÉS de index.css para
+   que estas reglas ganen por orden de cascada.
+
+   No reescribe index.css para minimizar riesgo. Si hay que revertir,
+   basta quitar el <link> a este archivo en web/index.html.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ══ HERO · de navy oscuro a cream claro, Fraunces editorial ══════════ */
+.hero {
+  background: var(--bg);
+  padding: 56px 24px 24px;
+}
+.hero::before {
+  background: radial-gradient(
+      ellipse 80% 50% at 20% 20%,
+      rgba(37, 75, 160, 0.05),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 90% 30%,
+      rgba(200, 135, 36, 0.04),
+      transparent 60%
+    );
+}
+
+.hero-kicker {
+  color: var(--gold-dim);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin-bottom: 22px;
+}
+.hero-kicker::before { background: var(--gold-dim); }
+
+.hero-h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  color: var(--navy-ink);
+  font-weight: 400;
+  font-size: clamp(38px, 5.2vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -0.022em;
+  margin-bottom: 18px;
+}
+.hero-h1 em {
+  color: var(--gold);
+  font-style: italic;
+  font-variation-settings: 'opsz' 144;
+  font-weight: 400;
+}
+
+.hero-sub {
+  color: var(--text-80);
+  font-weight: 400;
+  font-size: 16.5px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.hero-stats-bar { gap: 10px; }
+.hero-stat-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-60);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+.hero-stat-pill strong {
+  color: var(--navy);
+  font-weight: 700;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+/* ══ SEARCH · card blanca con mejor shadow y typography ═══════════════ */
+.buscador-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px;
+}
+.buscador-form, .buscador-fila2 {
+  gap: 14px;
+}
+.campo label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-40);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.campo input, .campo select {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.campo input:focus, .campo select:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px var(--navy-tint);
+}
+.campo input::placeholder { color: var(--text-40); }
+
+.btn-buscar {
+  background: var(--navy);
+  color: var(--blanco);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+.btn-buscar:hover { background: var(--navy-deep); transform: translateY(-1px); }
+
+/* ══ SHORTCUTS (atajos) · chips pill con navy active ══════════════════ */
+.filtros-rapidos { margin-top: 18px; }
+.filtros-titulo {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-40);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-right: 10px;
+}
+.filtro-tag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.filtro-tag:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+.filtro-tag.activo {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--gold-brilliant);
+  font-weight: 600;
+}
+
+/* ══ TABS Vigentes/Cerradas · conservador, mejor contraste ════════════ */
+.estado-listado-tabs {
+  background: var(--bg2);
+  border-color: var(--border);
+  padding: 5px;
+}
+.estado-listado-tabs::before {
+  background: var(--navy);
+}
+.estado-tab {
+  font-size: 12.5px;
+  color: var(--text-60);
+  padding: 8px 16px;
+}
+.estado-tab:hover { color: var(--text); }
+.estado-tab.activo { color: var(--gold-brilliant); }
+
+.estado-listado-copy {
+  font-size: 13px;
+  color: var(--text-60);
+  margin-bottom: 16px;
+}
+.estado-listado-copy strong { color: var(--text); }
+
+/* ══ RESULTADOS HEADER ════════════════════════════════════════════════ */
+.resultados-count {
+  font-size: 14.5px;
+  color: var(--text-60);
+}
+.resultados-count strong {
+  color: var(--navy);
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.count-sub { color: var(--text-40); font-size: 12.5px; }
+
+.ctrl-select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--text-60);
+  background: var(--surface);
+}
+.ctrl-select:hover { border-color: var(--navy-60); color: var(--text); }
+.vista-btn.activo { background: var(--surface); color: var(--navy); }
+
+/* ══ CARDS DE OFERTAS · border-left semántico y tipo editorial ════════ */
+.oferta-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 10px;
+  padding: 20px 22px;
+  transition: all 0.2s;
+}
+.oferta-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--navy-60);
+  border-left-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+/* Estado urgente (cierra pronto) */
+.oferta-card.urgente,
+.oferta-card[data-urgente="true"] {
+  border-left-color: var(--terra);
+}
+/* Destacada por equipo */
+.oferta-card.destacada {
+  border-top: 2px solid var(--gold);
+  border-left: 1px solid var(--border);
+  padding-top: 22px;
+}
+.oferta-card.destacada::before {
+  background: var(--navy);
+  color: var(--gold-brilliant);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.oferta-institucion {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.oferta-cargo {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--navy-ink);
+  line-height: 1.35;
+}
+.oferta-cargo-link { color: var(--navy-ink); }
+.oferta-cargo-link:hover { color: var(--navy); }
+
+/* Tags de tipo de contrato más refinadas */
+.badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.badge-planta     { background: #E0E7FF; color: #3730A3; }
+.badge-contrata   { background: var(--navy-tint); color: var(--navy); }
+.badge-honorarios { background: #FCE7F3; color: #9D174D; }
+.badge-codigo     { background: #E0F2FE; color: #075985; }
+.badge-otro       { background: var(--bg-subtle); color: var(--text-60); }
+.badge-sin-dato   { color: var(--text-40); border-color: var(--border); }
+.badge-region     { background: transparent; border: 1px solid var(--border); color: var(--text-60); }
+
+/* ══ SIDEBAR WIDGETS · más blancos y con mejor typography ═════════════ */
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.widget-titulo {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--navy-ink);
+}
+.widget-titulo::before { display: none; }
+
+.alerta-form input, .alerta-form select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--bg);
+}
+.alerta-form input:focus, .alerta-form select:focus {
+  border-color: var(--gold);
+  outline: 2px solid var(--gold);
+  outline-offset: -1px;
+}
+.alerta-label {
+  font-size: 11px;
+  color: var(--text-40);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.btn-alerta {
+  background: var(--navy);
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.btn-alerta:hover { background: var(--navy-deep); }
+
+/* ══ DATA UPDATE GLOBAL ════════════════════════════════════════════════ */
+.data-update-global {
+  font-size: 13px;
+  color: var(--text-60);
+}
+.data-update-global strong { color: var(--text); font-weight: 600; }
+
+/* ══ INFO SECTIONS (pasos) ═════════════════════════════════════════════ */
+.info-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500;
+  color: var(--navy-ink);
+  font-size: 24px;
+  letter-spacing: -0.012em;
+}
+.paso-num { color: var(--gold-dim); }
+
+/* ══ AD SLOTS · si están vacíos, colapsa ═══════════════════════════════ */
+.ad-slot:empty { display: none; }
+.ad-slot-sidebar:empty { display: none; }
+.ad-slot-resultados:empty { display: none; }
+.ad-slot-inner { opacity: 0.3; }
+
+/* ══ RESPONSIVE · mantener spacing en mobile ══════════════════════════ */
+@media (max-width: 768px) {
+  .hero { padding: 36px 16px 18px; }
+  .hero-h1 { font-size: clamp(30px, 7vw, 40px); }
+  .buscador-wrap { padding: 16px; }
+  .oferta-card { padding: 16px 18px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THEME TOGGLE · pill switch en el header
+   ══════════════════════════════════════════════════════════════════════ */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  margin-left: 8px;
+}
+.theme-toggle button {
+  background: transparent;
+  border: none;
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.2s, background 0.2s;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+.theme-toggle button svg { width: 14px; height: 14px; stroke-width: 2; }
+.theme-toggle button:hover { color: rgba(255, 255, 255, 0.9); }
+.theme-toggle button.is-active {
+  color: var(--acento);
+  background: rgba(255, 255, 255, 0.1);
+}
+.theme-toggle button:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+
+/* En páginas interiores (shared-layout) el nav también es navy oscuro,
+   así que estos estilos aplican igual. No necesito variante light. */
+
+/* ══════════════════════════════════════════════════════════════════════
+   RIBBON · freshness bar sobre el header
+   ══════════════════════════════════════════════════════════════════════ */
+.ribbon {
+  background: #050C1A;
+  color: rgba(244, 241, 232, 0.75);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ribbon-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ribbon-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  position: relative;
+}
+/* Separador visual entre items */
+.ribbon-item + .ribbon-item::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(244, 241, 232, 0.25);
+  margin-right: 14px;
+}
+.ribbon-item strong {
+  color: #F2C26A;
+  font-weight: 600;
+  margin: 0 2px;
+}
+.ribbon-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #6CB989;
+  box-shadow: 0 0 0 0 rgba(108, 185, 137, 0.5);
+  animation: ribbon-pulse 2s infinite;
+  display: inline-block;
+}
+@keyframes ribbon-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 185, 137, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(108, 185, 137, 0); }
+}
+@media (max-width: 600px) {
+  .ribbon-inner { gap: 14px; font-size: 12px; padding: 7px 14px; }
+  .ribbon-item--sm-hide { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DARK MODE · activa cuando data-theme="dark" en <html>
+   Los tokens legacy ya se invierten en design-tokens.css. Acá refuerzo
+   donde el CSS existente hardcodea colores y no responde a tokens.
+   ══════════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--texto);
+}
+:root[data-theme="dark"] .hero {
+  background: var(--bg);
+}
+:root[data-theme="dark"] .hero-h1 { color: var(--texto); }
+:root[data-theme="dark"] .hero-sub { color: var(--texto2); }
+:root[data-theme="dark"] .hero-stat-pill {
+  background: var(--blanco);
+  border-color: var(--borde);
+  color: var(--texto2);
+}
+:root[data-theme="dark"] .hero-stat-pill strong { color: var(--acento); }
+
+:root[data-theme="dark"] .buscador-wrap {
+  background: var(--blanco);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .campo input,
+:root[data-theme="dark"] .campo select {
+  background: var(--bg);
+  color: var(--texto);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .campo label { color: var(--texto3); }
+
+:root[data-theme="dark"] .filtro-tag {
+  background: var(--blanco);
+  border-color: var(--borde);
+  color: var(--texto);
+}
+:root[data-theme="dark"] .filtro-tag.activo {
+  background: var(--acento);
+  color: var(--azul);
+  border-color: var(--acento);
+}
+
+:root[data-theme="dark"] .oferta-card {
+  background: var(--blanco);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .oferta-card:hover {
+  background: #1C345A;
+}
+:root[data-theme="dark"] .oferta-institucion { color: var(--acento); }
+:root[data-theme="dark"] .oferta-cargo,
+:root[data-theme="dark"] .oferta-cargo-link { color: var(--texto); }
+
+:root[data-theme="dark"] .widget {
+  background: var(--blanco);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .widget-titulo { color: var(--texto); }
+
+:root[data-theme="dark"] .estado-listado-tabs {
+  background: var(--bg2);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .estado-tab.activo { color: var(--azul); }
+:root[data-theme="dark"] .estado-listado-tabs::before { background: var(--acento); }
+
+:root[data-theme="dark"] .resultados-count strong { color: var(--acento); }
+:root[data-theme="dark"] .ctrl-select {
+  background: var(--blanco);
+  color: var(--texto2);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .vista-btn.activo { background: var(--bg); color: var(--acento); }
+
+:root[data-theme="dark"] .badge-contrata {
+  background: rgba(234, 184, 88, 0.15);
+  color: var(--acento);
+}
+
+:root[data-theme="dark"] .info-title { color: var(--texto); }
+:root[data-theme="dark"] .info-section {
+  background: var(--blanco);
+  border-color: var(--borde);
+}
+:root[data-theme="dark"] .paso-card {
+  background: var(--bg);
+  border-color: var(--borde);
+}
+
+:root[data-theme="dark"] .data-update-global { color: var(--texto2); }
+:root[data-theme="dark"] .data-update-global strong { color: var(--texto); }
+
+/* Navbar en dark: mantener oscuro pero ajustar colores de texto activos */
+:root[data-theme="dark"] header nav {
+  background: #050C1A;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Theme toggle active state en dark */
+:root[data-theme="dark"] .theme-toggle button.is-active { color: var(--acento); }
+
+/* Transiciones suaves entre temas */
+body, .hero, .buscador-wrap, .oferta-card, .widget, .filtro-tag, .ribbon {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body, .hero, .buscador-wrap, .oferta-card, .widget, .filtro-tag, .ribbon {
+    transition: none;
+  }
+}
