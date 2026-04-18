@@ -80,6 +80,7 @@
       ensureScript('ribbon-data.js', 'ribbon-data-script');
       ensureScript('logo-fallback.js', 'logo-fallback-script');
       ensureScript('search-toggle.js', 'search-toggle-script');
+      ensureScript('plazo-colors.js', 'plazo-colors-script');
       return loadPartial('site-footer', 'partials/footer.html');
     })
     .then(function () {

@@ -1298,3 +1298,370 @@ header {
   opacity: 0.85;
   transition: opacity 0.15s;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MEJORAS FINALES (feedback de screenshots)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ══ 1) Ocultar stats pills del hero (redundantes con el ribbon) ═══════ */
+.hero-stats-bar {
+  display: none !important;
+}
+
+/* ══ 2) Ocultar "Renta no informada" (redundante) ═════════════════════ */
+.oferta-renta--muted,
+.oferta-renta:empty {
+  display: none !important;
+}
+
+/* ══ 3) Region badge con mejor contraste en light y dark ══════════════ */
+.badge.badge-region {
+  background: var(--navy-tint) !important;
+  color: var(--navy) !important;
+  border: none !important;
+  padding: 3px 10px !important;
+  font-weight: 500 !important;
+}
+:root[data-theme="dark"] .badge.badge-region {
+  background: rgba(127, 169, 221, 0.16) !important;
+  color: #A5B8DF !important;
+  border: none !important;
+}
+
+/* ══ 4) Plazo progresivo por días hasta cierre ═══════════════════════ */
+/* Crítico (0-2 días): rojo terra */
+.oferta-card.plazo-critico {
+  border-left-color: var(--rojo) !important;
+  border-left-width: 4px !important;
+}
+.oferta-card.plazo-critico .plazo-dot {
+  background: var(--rojo) !important;
+  box-shadow: 0 0 0 3px rgba(178, 59, 36, 0.15);
+}
+.oferta-card.plazo-critico .plazo-dot + span,
+.oferta-card.plazo-critico .plazo-dot ~ span {
+  color: var(--rojo) !important;
+  font-weight: 700 !important;
+}
+
+/* Warning (3-5 días): ámbar */
+.oferta-card.plazo-warning {
+  border-left-color: var(--naran) !important;
+}
+.oferta-card.plazo-warning .plazo-dot {
+  background: var(--naran) !important;
+}
+.oferta-card.plazo-warning .plazo-dot + span,
+.oferta-card.plazo-warning .plazo-dot ~ span {
+  color: var(--naran) !important;
+  font-weight: 600 !important;
+}
+
+/* Safe (6+): verde */
+.oferta-card.plazo-safe .plazo-dot {
+  background: var(--verde) !important;
+}
+.oferta-card.plazo-safe .plazo-dot + span,
+.oferta-card.plazo-safe .plazo-dot ~ span {
+  color: var(--verde) !important;
+}
+
+/* Cerrado: gris */
+.oferta-card.plazo-cerrado {
+  opacity: 0.75;
+}
+.oferta-card.plazo-cerrado .plazo-dot {
+  background: var(--texto3) !important;
+}
+.oferta-card.plazo-cerrado .plazo-dot + span,
+.oferta-card.plazo-cerrado .plazo-dot ~ span {
+  color: var(--texto3) !important;
+}
+
+/* ══ 5) Modal de detalle más compacto ═════════════════════════════════ */
+.modal {
+  max-height: 92vh !important;
+}
+.modal-body {
+  padding: 16px 20px 8px !important;
+}
+.modal-seccion {
+  margin-bottom: 14px !important;
+}
+/* KPIs en 2 columnas pero más compactos */
+.modal-body .kpis-grid,
+.modal-body .modal-kpis,
+.modal-body [class*="kpi-grid"] {
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 6px !important;
+}
+.modal-body .kpi,
+.modal-body .modal-kpi,
+.modal-body [class*="kpi-card"] {
+  padding: 8px 12px !important;
+  background: var(--bg2) !important;
+  border-radius: 8px !important;
+}
+.modal-body .kpi-label,
+.modal-body [class*="kpi-label"] {
+  font-size: 11px !important;
+  color: var(--text-40) !important;
+  margin-bottom: 2px !important;
+}
+.modal-body .kpi-value,
+.modal-body [class*="kpi-value"] {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+}
+
+/* Alerta "Cierra pronto" en modal más compacta */
+.modal-plazo-alert {
+  padding: 10px 14px !important;
+  margin-bottom: 12px !important;
+}
+.modal-plazo-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+}
+.modal-plazo-fecha {
+  font-size: 13px !important;
+}
+
+/* Header del modal más ajustado */
+.modal-header {
+  padding: 14px 20px !important;
+}
+.modal-titulo,
+.modal-header h2 {
+  font-size: 20px !important;
+  line-height: 1.25 !important;
+}
+
+/* ══ 6) Share modal (ig-modal) rediseñado con paleta del sitio ═══════ */
+.ig-modal {
+  background: rgba(10, 20, 38, 0.7) !important;
+  backdrop-filter: blur(6px);
+}
+.ig-modal-caja {
+  background: var(--blanco) !important;
+  border: 1px solid var(--borde) !important;
+  border-radius: 14px !important;
+  padding: 24px !important;
+  max-width: 520px !important;
+  box-shadow: 0 24px 80px rgba(10, 46, 110, 0.3);
+}
+.ig-modal-cerrar {
+  background: var(--bg2) !important;
+  color: var(--texto) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  top: 16px !important;
+  right: 16px !important;
+  border: none !important;
+  font-size: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+}
+.ig-modal-cerrar:hover {
+  background: var(--borde) !important;
+  color: var(--texto) !important;
+}
+.ig-modal-titulo {
+  font-family: var(--font-serif) !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  color: var(--navy-ink) !important;
+  letter-spacing: -0.015em !important;
+  margin-bottom: 16px !important;
+}
+:root[data-theme="dark"] .ig-modal-titulo { color: var(--texto) !important; }
+
+/* Preview de imagen */
+.share-preview {
+  border-radius: 10px !important;
+  overflow: hidden;
+  margin-bottom: 14px !important;
+  background: var(--bg2);
+  border: 1px solid var(--borde);
+}
+.share-preview-frame {
+  border-radius: 8px;
+}
+.share-preview-estado {
+  color: var(--text-60);
+  font-size: 13px;
+}
+
+/* Switch de formato más limpio */
+.share-preview-switch {
+  background: var(--bg2) !important;
+  border: 1px solid var(--borde) !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  display: inline-flex !important;
+  gap: 2px !important;
+  margin: 12px auto !important;
+}
+.share-preview-switch-btn {
+  background: transparent !important;
+  border: none !important;
+  padding: 7px 14px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--texto2) !important;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.share-preview-switch-btn.is-active {
+  background: var(--navy) !important;
+  color: var(--gold-brilliant) !important;
+  font-weight: 600 !important;
+}
+:root[data-theme="dark"] .share-preview-switch-btn.is-active {
+  background: var(--acento) !important;
+  color: var(--azul) !important;
+}
+
+/* Meta info */
+.share-meta {
+  padding: 12px 0;
+  border-top: 1px solid var(--borde);
+}
+.share-meta-kicker {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--navy) !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 4px !important;
+}
+:root[data-theme="dark"] .share-meta-kicker { color: var(--acento) !important; }
+.share-meta-titulo {
+  font-family: var(--font-sans) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--navy-ink) !important;
+  line-height: 1.35 !important;
+}
+:root[data-theme="dark"] .share-meta-titulo { color: var(--texto) !important; }
+
+/* Input de enlace */
+.share-link {
+  display: flex !important;
+  gap: 8px !important;
+  margin: 12px 0 16px !important;
+}
+.share-link-input {
+  flex: 1;
+  background: var(--bg2) !important;
+  border: 1px solid var(--borde) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  color: var(--texto) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  min-width: 0;
+}
+.share-link-copy {
+  background: var(--navy) !important;
+  color: var(--blanco) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.share-link-copy:hover { background: var(--navy-deep) !important; }
+.share-link-copy.is-copied {
+  background: var(--verde) !important;
+}
+:root[data-theme="dark"] .share-link-copy {
+  background: var(--acento) !important;
+  color: var(--azul) !important;
+}
+
+/* Acciones finales: solo descargar (ocultamos WhatsApp duplicado) */
+.ig-modal-acciones {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  position: static !important;
+  box-shadow: none !important;
+}
+.ig-modal-acciones .ig-btn {
+  height: 44px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  transition: all 0.15s;
+}
+.ig-modal-acciones .ig-btn--primary {
+  background: var(--navy) !important;
+  color: var(--blanco) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.ig-modal-acciones .ig-btn--primary:hover {
+  background: var(--navy-deep) !important;
+  transform: translateY(-1px);
+}
+:root[data-theme="dark"] .ig-modal-acciones .ig-btn--primary {
+  background: var(--acento) !important;
+  color: var(--azul) !important;
+}
+/* Ocultar WhatsApp duplicado (ya existe en modal-share-group) */
+.ig-modal-acciones .ig-btn--wa {
+  display: none !important;
+}
+.ig-modal-nota {
+  font-size: 12.5px !important;
+  color: var(--text-60) !important;
+  line-height: 1.55 !important;
+  margin-top: 12px !important;
+  padding: 0 !important;
+}
+
+/* ══ 7) Mejoras misc. de consistencia ═════════════════════════════════ */
+
+/* Evitar que los spans de plazo se pisen en modo compact */
+.oferta-plazo,
+.plazo-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Fav icon heart con mejor afordance */
+.btn-fav-card {
+  transition: all 0.15s !important;
+}
+.btn-fav-card:hover {
+  transform: scale(1.08);
+}
+
+/* Oferta-logo container para sector icons */
+.oferta-logo {
+  overflow: hidden;
+  background: #F4F3EE;
+}
+.oferta-logo .sector-icon-fallback {
+  width: 100%;
+  height: 100%;
+}
+:root[data-theme="dark"] .oferta-logo {
+  background: rgba(255, 255, 255, 0.92);
+}
