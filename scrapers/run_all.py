@@ -19,9 +19,11 @@ import json
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
+
+import psycopg2
 
 from scrapers.base import (
     BaseScraper,
@@ -34,6 +36,7 @@ from scrapers.base import (
     limpiar_vencidas,
     setup_logging,
 )
+from scrapers.frequency_policy import should_evaluate_now
 from scrapers.empleos_publicos import EmpleosPublicosScraper
 from scrapers.evaluation.audit_store import AuditStore
 from scrapers.evaluation.catalog_loader import CatalogLoader
@@ -113,7 +116,7 @@ def _resolve_fuente_id(institucion: dict[str, Any], evaluation: Any, fuentes_ind
         for item in fuentes_index:
             if (item.get("tipo_plataforma") or "").lower() == "empleospublicos":
                 return item["id"]
-        return 1
+        return None  # fuentes table not yet populated
 
     target_hosts = {
         _host(institucion.get("url_empleo")),
@@ -141,6 +144,67 @@ def _build_discovery_catalog(loader: CatalogLoader, *, limit: int | None = None)
     return items[:limit] if limit else items
 
 
+def _load_last_evaluations() -> dict[int, tuple[str | None, datetime | None]]:
+    """Carga la última retry_policy y evaluated_at por institucion_id desde source_evaluations.
+
+    Returns:
+        Dict ``{institucion_id: (retry_policy_str, evaluated_at)}``.
+        Las claves son ``int``; el valor puede tener ``None`` en cualquier campo.
+    """
+    result: dict[int, tuple[str | None, datetime | None]] = {}
+    try:
+        with conexion() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ON (institucion_id)
+                        institucion_id,
+                        retry_policy,
+                        evaluated_at
+                    FROM source_evaluations
+                    WHERE institucion_id IS NOT NULL
+                    ORDER BY institucion_id, evaluated_at DESC
+                    """
+                )
+                for inst_id, retry_policy, evaluated_at in cur.fetchall():
+                    result[inst_id] = (retry_policy, evaluated_at)
+    except Exception as exc:
+        log.warning("No se pudo cargar source_evaluations para cooldown: %s", exc)
+    return result
+
+
+def _partition_by_cooldown(
+    sources: list[dict[str, Any]],
+    last_evaluations: dict[int, tuple[str | None, datetime | None]],
+    *,
+    now: datetime | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Separa fuentes en (due, in_cooldown).
+
+    ``due`` son las que deben evaluarse ahora.
+    ``in_cooldown`` son las que aún no han cumplido su cooldown desde la
+    última evaluación y se saltan en esta corrida.
+    """
+    due: list[dict[str, Any]] = []
+    in_cooldown: list[dict[str, Any]] = []
+    _now = now or datetime.now(tz=timezone.utc)
+    for source in sources:
+        inst_id = source.get("id")
+        if inst_id is None:
+            due.append(source)
+            continue
+        entry = last_evaluations.get(int(inst_id))
+        if entry is None:
+            due.append(source)
+            continue
+        retry_policy, last_evaluated_at = entry
+        if should_evaluate_now(retry_policy=retry_policy, last_evaluated_at=last_evaluated_at, now=_now):
+            due.append(source)
+        else:
+            in_cooldown.append(source)
+    return due, in_cooldown
+
+
 async def _evaluate_sources(
     sources: list[dict[str, Any]],
     *,
@@ -163,28 +227,92 @@ async def _evaluate_sources(
                     historical_noise_ratio = 0.0
                 evaluation = await evaluator.evaluate(source, historical_noise_ratio=historical_noise_ratio)
                 fuente_id = _resolve_fuente_id(source, evaluation, fuentes_index)
-                try:
-                    with conexion() as conn:
-                        audit_store.save_source_evaluation(
-                            conn,
-                            source_id=fuente_id,
-                            institucion_id=source.get("id"),
-                            evaluation=evaluation,
-                        )
-                        if fuente_id is None and evaluation.decision == Decision.EXTRACT:
-                            audit_store.save_catalog_event(
-                                conn,
-                                institucion_id=source.get("id"),
-                                event_type="missing_runtime_source",
-                                detail="La fuente fue evaluada como extraible, pero no existe mapeo fuente_id en el runtime actual.",
-                                payload=evaluation.to_record(),
-                            )
-                        conn.commit()
-                except Exception:
-                    pass
                 return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=evaluation)
 
-        runtime_sources = await asyncio.gather(*[_evaluate_one(source) for source in sources])
+        async def _evaluate_one_safe(source: dict[str, Any]) -> RuntimeSource:
+            try:
+                return await asyncio.wait_for(_evaluate_one(source), timeout=45)
+            except (asyncio.TimeoutError, Exception) as e:
+                log.debug("Evaluación abortada para %s: %s", source.get("nombre", "?"), e)
+                from scrapers.evaluation.models import (
+                    Availability, PageType, JobRelevance, OpenCallsStatus,
+                    ValidityStatus, Decision, RetryPolicy,
+                )
+                from scrapers.evaluation.source_evaluator import SourceEvaluator as _SE
+                fallback = _SE._make_result(  # type: ignore[attr-defined]
+                    source_url=source.get("url_empleo", ""),
+                    availability=Availability.UNREACHABLE,
+                    http_status=0,
+                    page_type=PageType.UNKNOWN,
+                    job_relevance=JobRelevance.UNKNOWN,
+                    open_calls_status=OpenCallsStatus.UNKNOWN,
+                    validity_status=ValidityStatus.UNKNOWN,
+                    decision=Decision.SKIP,
+                    confidence=0.0,
+                    retry_policy=RetryPolicy.PAUSE,
+                ) if False else None
+                if fallback is None:
+                    from scrapers.evaluation.models import EvaluationResult
+                    from datetime import timezone
+                    fallback = EvaluationResult(
+                        source_url=source.get("url_empleo", ""),
+                        availability=Availability.TIMEOUT,
+                        http_status=0,
+                        page_type=PageType.UNKNOWN_PAGE_TYPE,
+                        job_relevance=JobRelevance.UNCERTAIN,
+                        open_calls_status=OpenCallsStatus.UNKNOWN_STATUS,
+                        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+                        recommended_extractor=None,
+                        decision=Decision.SKIP,
+                        reason_code=None,
+                        reason_detail=f"Timeout o error: {str(e)[:120]}",
+                        confidence=0.0,
+                        retry_policy=RetryPolicy.EVENTUAL,
+                        signals_json={},
+                        evaluated_at=datetime.now(tz=timezone.utc),
+                    )
+                return RuntimeSource(institucion=source, fuente_id=None, evaluation=fallback)
+
+        runtime_sources = await asyncio.gather(*[_evaluate_one_safe(source) for source in sources])
+
+    # Persistir evaluaciones con conexión directa limpia (evita estado sucio del pool)
+    import os
+    saved = 0
+    errors = 0
+    try:
+        db_url = os.environ.get("DATABASE_URL") or (
+            f"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}"
+            f"@{os.environ['DB_HOST']}:{os.environ.get('DB_PORT', 5432)}/{os.environ['DB_NAME']}"
+        )
+        conn_direct = psycopg2.connect(db_url)
+        try:
+            for item in runtime_sources:
+                try:
+                    audit_store.save_source_evaluation(
+                        conn_direct,
+                        source_id=item.fuente_id,
+                        institucion_id=item.institucion.get("id"),
+                        evaluation=item.evaluation,
+                    )
+                    if item.fuente_id is None and item.evaluation.decision == Decision.EXTRACT:
+                        audit_store.save_catalog_event(
+                            conn_direct,
+                            institucion_id=item.institucion.get("id"),
+                            event_type="missing_runtime_source",
+                            detail="La fuente fue evaluada como extraible, pero no existe mapeo fuente_id en el runtime actual.",
+                            payload=item.evaluation.to_record(),
+                        )
+                    saved += 1
+                except Exception as e:
+                    errors += 1
+                    log.debug("Error guardando evaluación de %s: %s", item.institucion.get("nombre", "?"), e)
+            conn_direct.commit()
+        finally:
+            conn_direct.close()
+    except Exception as e:
+        log.warning("Error persistiendo evaluaciones al batch: %s", e)
+    log.info("Evaluaciones persistidas: %d OK, %d errores", saved, errors)
+
     return list(runtime_sources)
 
 
@@ -370,6 +498,15 @@ async def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--catalog-xlsx", help="Ruta alternativa al catalogo XLSX.")
     parser.add_argument("--limit", type=int, help="Limitar fuentes para una corrida parcial.")
     parser.add_argument("--evaluate-only", action="store_true", help="Solo ejecutar discovery+evaluation.")
+    parser.add_argument(
+        "--force-evaluate",
+        action="store_true",
+        help=(
+            "Ignorar cooldowns de retry_policy y re-evaluar todas las fuentes. "
+            "Por defecto las fuentes con evaluación reciente se saltan según su "
+            "retry_policy (critical=3h, high=6h, … eventual=168h)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     log.info("Inicio run_all gatekeeper %s", datetime.now().isoformat(timespec="seconds"))
@@ -388,7 +525,37 @@ async def main(argv: list[str] | None = None) -> int:
     fuentes_index = _load_fuentes_index()
     audit_store = AuditStore()
     catalog_sources = _build_discovery_catalog(loader, limit=args.limit)
-    runtime_sources = await _evaluate_sources(catalog_sources, audit_store=audit_store, fuentes_index=fuentes_index)
+
+    # ── Filtrado por cooldown de retry_policy ──────────────────────────────
+    if args.force_evaluate:
+        log.info("--force-evaluate activo: se evaluarán las %d fuentes sin respetar cooldown.", len(catalog_sources))
+        sources_to_evaluate = catalog_sources
+    else:
+        last_evaluations = _load_last_evaluations()
+        sources_to_evaluate, in_cooldown = _partition_by_cooldown(catalog_sources, last_evaluations)
+        if in_cooldown:
+            log.info(
+                "Retry-policy cooldown: %d fuentes en cooldown (se saltan), %d fuentes a evaluar ahora.",
+                len(in_cooldown),
+                len(sources_to_evaluate),
+            )
+            # Resumen de por qué están en cooldown
+            cooldown_by_policy: dict[str, int] = {}
+            for src in in_cooldown:
+                inst_id = src.get("id")
+                policy = (last_evaluations.get(int(inst_id), (None, None))[0] or "unknown") if inst_id else "unknown"
+                cooldown_by_policy[policy] = cooldown_by_policy.get(policy, 0) + 1
+            log.info("Distribución cooldown por retry_policy: %s", cooldown_by_policy)
+        else:
+            log.info("Todas las %d fuentes están listas para evaluación.", len(sources_to_evaluate))
+
+    if not sources_to_evaluate:
+        log.info("No hay fuentes a evaluar en esta corrida (todas en cooldown). Finalizando.")
+        if db_enabled:
+            cerrar_pool()
+        return 0
+
+    runtime_sources = await _evaluate_sources(sources_to_evaluate, audit_store=audit_store, fuentes_index=fuentes_index)
     _print_evaluation_summary(runtime_sources)
 
     reports: list[PrecisionReport] = []

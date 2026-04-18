@@ -766,14 +766,14 @@ def match_institucion(
         return None
 
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, nombre, nombre_norm FROM instituciones WHERE nombre_norm IS NOT NULL"
-        )
+        # nombre_norm no existe como columna; normalizamos el nombre al vuelo.
+        cur.execute("SELECT id, nombre FROM instituciones")
         candidatos = cur.fetchall()
 
     mejor_id: int | None = None
     mejor_ratio = 0.0
-    for cid, _cnombre, cnorm in candidatos:
+    for cid, cnombre in candidatos:
+        cnorm = normalizar_nombre_institucion(cnombre or "")
         if not cnorm:
             continue
         ratio = difflib.SequenceMatcher(None, nombre_norm, cnorm).ratio()
@@ -784,11 +784,11 @@ def match_institucion(
     if mejor_id is not None and mejor_ratio >= umbral:
         return mejor_id
 
-    # Insertar nueva
+    # Insertar nueva (nombre_corto guarda la versión normalizada para futuras consultas)
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO instituciones (nombre, nombre_norm, sector, url_empleo)
+            INSERT INTO instituciones (nombre, nombre_corto, sector, url_empleo)
             VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
@@ -991,7 +991,7 @@ class HttpClient:
                             continue
                         if resp.status in (403, 503):
                             log.warning("HTTP %s en %s (intento %s)", resp.status, url, intento)
-                            body_text = await resp.text()
+                            body_text = await resp.text(errors="replace")
                             if intento < self._intentos:
                                 await self._backoff(intento)
                                 continue
@@ -1004,7 +1004,7 @@ class HttpClient:
                             )
                         if resp.status >= 400:
                             log.warning("HTTP %s en %s — no reintentable", resp.status, url)
-                            body_text = await resp.text()
+                            body_text = await resp.text(errors="replace")
                             return HttpFetchResult(
                                 url=url,
                                 final_url=str(resp.url),
@@ -1022,7 +1022,7 @@ class HttpClient:
                                 headers=dict(resp.headers),
                                 json_data=json_data,
                             )
-                        body_text = await resp.text()
+                        body_text = await resp.text(errors="replace")
                         return HttpFetchResult(
                             url=url,
                             final_url=str(resp.url),
@@ -1225,6 +1225,12 @@ class BaseScraper(abc.ABC):
                 except Exception as e:
                     self.log.exception("Error procesando %s: %s", raw.url, e)
                     self.report.errores += 1
+                    # Recuperar el estado de la transacción para que el
+                    # siguiente raw no falle con "transaction is aborted".
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
 
             # Cerrar ofertas que NO vimos en esta corrida (post-audit 1.6)
             if not self.hubo_error_fatal:
@@ -1441,7 +1447,12 @@ class BaseScraper(abc.ABC):
                      motivo_legacy, keyword[:100]),
                 )
         except Exception:  # nunca dejes que esto rompa la corrida
-            pass
+            # Rollback para no dejar la transacción en estado abortado,
+            # lo que envenenaría las llamadas siguientes en el mismo conn.
+            try:
+                conn.rollback()
+            except Exception:
+                pass
 
     def _cerrar_desaparecidas(self, conn) -> None:
         """Cierra ofertas que venían activas de esta fuente y que no vimos hoy."""
