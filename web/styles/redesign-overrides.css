@@ -1824,10 +1824,9 @@ header {
 .modal-plazo-label { font-size: 12.5px !important; line-height: 1.15 !important; }
 .modal-plazo-fecha { font-size: 11px !important; margin-top: 1px !important; }
 
-/* Resumen ejecutivo: grid auto-fit para llenar el ancho disponible con los
-   items visibles. Con minmax de 200px entran hasta 4 columnas en desktop
-   típico (~860px de ancho interior → 4 col) y se degrada a 3/2/1 sin dejar
-   celdas huérfanas: los items ocultos con hidden no ocupan slot. */
+/* Resumen ejecutivo: fallback auto-fit para cuando el JS aún no aplicó
+   data-count (carga inicial). Una vez seteado, el CSS específico abajo
+   toma el control y elige la cuadrícula óptima según items visibles. */
 .modal-info-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
   gap: 6px !important;
@@ -1839,6 +1838,19 @@ header {
 }
 .modal-info-label { font-size: 10px !important; margin-bottom: 1px !important; letter-spacing: .2px !important; }
 .modal-info-val   { font-size: 12.5px !important; line-height: 1.3 !important; font-weight: 600 !important; word-break: break-word; }
+
+/* Distribución óptima por count — minimiza filas con 1 item colgando. */
+.modal-info-grid[data-count="1"] { grid-template-columns: 1fr !important; }
+.modal-info-grid[data-count="2"] { grid-template-columns: repeat(2, 1fr) !important; }
+.modal-info-grid[data-count="3"] { grid-template-columns: repeat(3, 1fr) !important; }
+.modal-info-grid[data-count="4"] { grid-template-columns: repeat(2, 1fr) !important; } /* 2+2 */
+.modal-info-grid[data-count="5"] { grid-template-columns: repeat(3, 1fr) !important; } /* 3+2 */
+.modal-info-grid[data-count="6"] { grid-template-columns: repeat(3, 1fr) !important; } /* 3+3 */
+@media (max-width: 600px) {
+  /* En móvil preferimos 2 columnas salvo cuando hay sólo 1 item. */
+  .modal-info-grid[data-count="1"] { grid-template-columns: 1fr !important; }
+  .modal-info-grid:not([data-count="1"]) { grid-template-columns: repeat(2, 1fr) !important; }
+}
 
 /* Secciones del body: margen menor entre ellas para que Requisitos +
    Descripción quepan en el primer viewport */
@@ -1936,7 +1948,10 @@ header {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   LOGOS · contenedor siempre con fondo claro (para SVG fallback)
+   LOGOS · shared-shell.js reemplaza la <img> por un .sector-icon-fallback
+   cuando la cadena de logos no entrega una versión lo suficientemente
+   nítida. Nos aseguramos de que ese fallback nunca quede invisible y
+   que el contenedor siempre tenga un fondo consistente.
    ══════════════════════════════════════════════════════════════════════ */
 .oferta-logo {
   background: var(--navy-tint, #E1E8F6) !important;
@@ -1950,22 +1965,49 @@ header {
   background: var(--blanco);
   border-radius: 8px;
 }
-.oferta-logo .sector-icon-fallback {
+.sector-icon-fallback {
   width: 100%;
   height: 100%;
-  padding: 0;
-  background: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14%;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, rgba(37, 75, 160, 0.10), rgba(232, 168, 32, 0.10));
+  color: var(--navy, #254BA0);
+  border-radius: 10px;
 }
-.oferta-logo .sector-icon-fallback svg {
-  width: 62%;
-  height: 62%;
+.sector-icon-fallback svg {
+  width: 100%;
+  height: 100%;
+  max-width: 60%;
+  max-height: 60%;
+  display: block;
 }
+/* Matiz de fondo por sector para dar identidad sin depender del logo real. */
+.sector-icon-fallback--salud       { background: linear-gradient(135deg, rgba(220, 38, 38, 0.10),  rgba(251, 146, 60, 0.10)); color: #B91C1C; }
+.sector-icon-fallback--educacion   { background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(232, 168, 32, 0.10)); color: #1D4ED8; }
+.sector-icon-fallback--universidad { background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(129, 140, 248, 0.12)); color: #1E40AF; }
+.sector-icon-fallback--judicial    { background: linear-gradient(135deg, rgba(120, 53, 15, 0.12),  rgba(217, 119, 6, 0.10));  color: #78350F; }
+.sector-icon-fallback--ffaa        { background: linear-gradient(135deg, rgba(22, 101, 52, 0.12),  rgba(34, 139, 34, 0.12));  color: #14532D; }
+.sector-icon-fallback--municipal   { background: linear-gradient(135deg, rgba(232, 168, 32, 0.15), rgba(37, 75, 160, 0.10));  color: #92400E; }
+.sector-icon-fallback--empresa     { background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(37, 75, 160, 0.10));  color: #075985; }
+.sector-icon-fallback--regional    { background: linear-gradient(135deg, rgba(244, 114, 182, 0.12), rgba(139, 92, 246, 0.12)); color: #86198F; }
+.sector-icon-fallback--ejecutivo   { background: linear-gradient(135deg, rgba(37, 75, 160, 0.12),  rgba(232, 168, 32, 0.10));  color: #1E3A8A; }
+
 :root[data-theme="dark"] .oferta-logo {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 :root[data-theme="dark"] .oferta-logo img {
   background: rgba(255, 255, 255, 0.95);
 }
-:root[data-theme="dark"] .oferta-logo .sector-icon-fallback svg {
-  stroke: var(--acento) !important;
+:root[data-theme="dark"] .sector-icon-fallback {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--acento);
+}
+:root[data-theme="dark"] .sector-icon-fallback[class*="--"] {
+  /* Unifica los matices por sector cuando estamos en oscuro para evitar
+     que algunos queden casi invisibles. */
+  background: rgba(232, 168, 32, 0.12);
+  color: var(--acento);
 }
