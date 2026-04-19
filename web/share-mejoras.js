@@ -1,10 +1,10 @@
 /* share-mejoras.js
-   - Cambia el botón "Instagram" para que ya NO abra el generador de imagen.
-     En su lugar copia el mensaje (título + URL) al portapapeles con toast
-     "Link copiado, pégalo en tu IG".
    - Añade un botón de Email a la fila de compartir (orden: WA · LinkedIn
      · Email · IG · Copiar enlace).
    - El botón Copiar ahora copia "Título — Institución" + url.
+   - IG conserva su flujo de preview + descarga de imagen (ver abrirIG en
+     index.html). Antes lo cortábamos a "solo copiar link"; lo dejamos con
+     la experiencia rica que incluye la imagen para IG stories.
 */
 (function () {
   'use strict';
@@ -95,23 +95,6 @@
     }
   }
 
-  function patchIGButton(btn) {
-    if (!btn || btn.dataset.igPatched === '1') return;
-    btn.dataset.igPatched = '1';
-    btn.setAttribute('title', 'Copiar enlace (pégalo en tu IG)');
-    btn.setAttribute('aria-label', 'Copiar enlace para pegar en Instagram');
-    // Remover onclick previo y añadir nuestro handler
-    var newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', async function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var o = getOfertaFromModal();
-      var ok = await copyToClipboard(buildShareText(o));
-      showToast(ok ? '🔗 Link copiado — pégalo en tu IG' : 'No se pudo copiar');
-    }, true);
-  }
-
   function patchCopyButton(btn) {
     if (!btn || btn.dataset.copyPatched === '1') return;
     btn.dataset.copyPatched = '1';
@@ -139,7 +122,6 @@
     var group = document.querySelector('.modal-share-group');
     if (!group) return;
     addEmailButton(group);
-    patchIGButton(group.querySelector('.share-btn--ig'));
     patchCopyButton(group.querySelector('.share-btn--copy'));
     reorderShareGroup(group);
   }

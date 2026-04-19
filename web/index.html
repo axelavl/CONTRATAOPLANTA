@@ -500,8 +500,12 @@
         <a class="share-btn share-btn--li" id="share-li" target="_blank" rel="noopener" title="LinkedIn" aria-label="Compartir en LinkedIn">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
         </a>
-        <button class="share-btn share-btn--ig" id="share-ig" type="button" title="Instagram" aria-label="Compartir en Instagram (descargar imagen)">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.8.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.5 1 .5.5.8.9 1 1.5.2.4.4 1.1.4 2.2.1 1.2.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-1 1.5-.5.5-.9.8-1.5 1-.4.2-1.1.4-2.2.4-1.2.1-1.6.1-4.8.1s-3.6 0-4.8-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.5-1-.5-.5-.8-.9-1-1.5-.2-.4-.4-1.1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.8c.1-1.2.2-1.8.4-2.2.2-.6.5-1 1-1.5.5-.5.9-.8 1.5-1 .4-.2 1.1-.4 2.2-.4C8.4 2.2 8.8 2.2 12 2.2zm0 2c-3.1 0-3.5 0-4.7.1-1 .1-1.6.2-1.9.3-.5.2-.8.4-1.2.8-.3.3-.6.7-.8 1.2-.1.3-.3.9-.3 1.9-.1 1.2-.1 1.6-.1 4.7s0 3.5.1 4.7c.1 1 .2 1.6.3 1.9.2.5.4.8.8 1.2.3.3.7.6 1.2.8.3.1.9.3 1.9.3 1.2.1 1.6.1 4.7.1s3.5 0 4.7-.1c1-.1 1.6-.2 1.9-.3.5-.2.8-.4 1.2-.8.3-.3.6-.7.8-1.2.1-.3.3-.9.3-1.9.1-1.2.1-1.6.1-4.7s0-3.5-.1-4.7c-.1-1-.2-1.6-.3-1.9-.2-.5-.4-.8-.8-1.2-.3-.3-.7-.6-1.2-.8-.3-.1-.9-.3-1.9-.3-1.2-.1-1.6-.1-4.7-.1zm0 3.4a4.4 4.4 0 1 1 0 8.8 4.4 4.4 0 0 1 0-8.8zm0 2a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm5.6-2.2a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
+        <button class="share-btn share-btn--ig" id="share-ig" type="button" title="Instagram" aria-label="Compartir en Instagram (generar imagen)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="5" ry="5"/>
+            <path d="M16.5 11.5a4.5 4.5 0 1 1-4.5-4.5 4.5 4.5 0 0 1 4.5 4.5z"/>
+            <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+          </svg>
         </button>
         <button class="share-btn share-btn--copy" id="share-copy" type="button" title="Copiar enlace" aria-label="Copiar enlace">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -514,21 +518,30 @@
 <!-- ══ ACCIONES DE BASES OFICIALES ═════════════════════════════════ -->
 <div id="bases-viewer" class="bases-viewer-overlay" role="dialog" aria-modal="true" aria-labelledby="bases-viewer-title" hidden>
   <div class="bases-viewer-panel">
-    <header class="bases-viewer-header">
-      <div class="bases-viewer-meta">
-        <div class="bases-viewer-kicker">Sitio oficial</div>
-        <h3 id="bases-viewer-title">Bases del concurso</h3>
-      </div>
-      <button class="bases-viewer-close" type="button" aria-label="Cerrar" onclick="cerrarVisorBases()">✕</button>
-    </header>
+    <button class="bases-viewer-close" type="button" aria-label="Cerrar" onclick="cerrarVisorBases()">✕</button>
 
-    <div class="bases-viewer-content bases-viewer-content--actions">
-      <p class="bases-fallback-copy">
-        Las bases están publicadas en el sitio oficial del organismo. Al continuar, será redirigido al documento o página oficial correspondiente.
+    <div class="bases-viewer-body">
+      <div class="bases-viewer-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/>
+          <path d="M14 3v5h5"/>
+          <path d="M9 13h6M9 17h4"/>
+        </svg>
+      </div>
+      <div class="bases-viewer-kicker">Bases oficiales</div>
+      <h3 class="bases-viewer-title" id="bases-viewer-title">Bases del concurso</h3>
+      <p class="bases-viewer-copy">
+        Te llevaremos al sitio oficial del organismo que publicó este concurso.
+        Revisa el documento completo antes de postular.
       </p>
-      <div class="bases-fallback-actions" role="group" aria-label="Acciones de bases oficiales">
+      <div class="bases-viewer-url" id="bases-viewer-url" title="URL de destino"></div>
+
+      <div class="bases-viewer-actions" role="group" aria-label="Acciones de bases oficiales">
         <a id="bases-action-open" class="btn-modal-primary" target="_blank" rel="noopener noreferrer">Abrir bases oficiales ↗</a>
-        <button id="bases-action-copy" class="bases-link-copy" type="button">Copiar enlace</button>
+        <button id="bases-action-copy" class="bases-link-copy" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span>Copiar enlace</span>
+        </button>
       </div>
     </div>
   </div>
@@ -872,8 +885,24 @@ function sanitizeHighlightHtml(s) {
 const CARGO_SIGLAS_MAYUS = new Set([
   'rrhh','tic','ti','qa','ux','ui','it','pm','api','sql','sap','erp','crm','bi','seo','sem',
   'upc','uci','sapu','aps',
+  // Instituciones y grados frecuentes en títulos del sector público.
+  'slep','cmsc','sence','minsal','mineduc','minvu','mop','mma','mtt','segpres',
+  'cft','ip','dgac','conaf','sernac','sernapesca','sernatur','sernam',
+  'indap','inia','corfo','fosis','sii','srcei','sag','sml','senama','senapred',
+  'ffaa','pdi','gope','dmc','dom','dideco','daem','dgac','oirs','asistente',
+  'eus','esu','eur','icp','etcp','hep',
+  // Números romanos (rangos usados en grados y niveles jerárquicos).
   'ii','iii','iv','v','vi','vii','viii','ix','x'
 ]);
+
+// Siglas con puntos entre letras que deben mostrarse siempre en mayúsculas,
+// independientemente de cómo vengan en la fuente. Ej: "e.u.S." → "E.U.S."
+const CARGO_SIGLAS_PUNTEADAS = /\b(?:[A-Za-z]\.){2,}(?:[A-Za-z]\.?)?/g;
+
+// Acrónimos a forzar en mayúsculas incluso en títulos con capitalización
+// mixta (no sólo en los "gritados"). Complementa CARGO_SIGLAS_MAYUS para
+// casos como "Técnico de Auditoría — SLEP Los Libertadores".
+const CARGO_ACRONIMOS_FORZADOS = /\b(?:SLEP|CMSC|SENCE|MINSAL|MINEDUC|MINVU|SEGPRES|CFT|DGAC|CONAF|CORFO|FOSIS|SII|SRCEI|SAG|SML|SENAMA|SENAPRED|FFAA|PDI|DAEM|DIDECO|DOM|OIRS|IP|UCI|UPC|SAPU|APS|EUS|ESU|RRHH|TIC|ERP|CRM|API|SQL)\b/gi;
 
 const CARGO_PROPIOS = new Map([
   ['chile', 'Chile'],
@@ -956,6 +985,25 @@ function _limpiarPrefijosCargo(txt) {
   return s;
 }
 
+function _aplicarAcronimosForzados(texto) {
+  if (!texto) return texto;
+  let out = texto.replace(CARGO_SIGLAS_PUNTEADAS, (m) => m.toUpperCase());
+  out = out.replace(CARGO_ACRONIMOS_FORZADOS, (m) => m.toUpperCase());
+  return out;
+}
+
+function _sanitizarPuntuacion(texto) {
+  if (!texto) return texto;
+  // "palabra ," o "palabra  ," → "palabra,"  (coma/punto/; antes debe ir
+  // pegado a la palabra anterior, nunca con espacio que lo preceda).
+  let out = texto.replace(/\s+([,;:!?])/g, '$1');
+  // "palabra,palabra" → "palabra, palabra" (asegura espacio después).
+  out = out.replace(/([,;:])(?=[^\s\d])/g, '$1 ');
+  // Colapsa espacios múltiples residuales.
+  out = out.replace(/[ \t]{2,}/g, ' ').trim();
+  return out;
+}
+
 function normalizarTituloOferta(cargo) {
   const original = String(cargo || '');
   const sinPrefijos = _limpiarPrefijosCargo(original);
@@ -966,21 +1014,24 @@ function normalizarTituloOferta(cargo) {
   const minus = (letras.match(/[a-záéíóúüñ]/g) || []).length;
   const pareceGritado = mayus > 0 && (minus === 0 || mayus / Math.max(1, minus) > 3);
 
+  let resultado;
   if (!pareceGritado) {
-    return _capitalizarPrimera(sinPrefijos.replace(/\s{2,}/g, ' ').trim());
+    resultado = _capitalizarPrimera(sinPrefijos.replace(/\s{2,}/g, ' ').trim());
+  } else {
+    const tokens = sinPrefijos.split(/(\s+|[-/(),.:;])/g).filter(Boolean);
+    let idxPalabra = 0;
+    const normalizado = tokens.map((t) => {
+      if (/^\s+$/.test(t) || /^[-/(),.:;]$/.test(t)) return t;
+      const token = _normalizarTokenCargo(t, idxPalabra);
+      idxPalabra += 1;
+      return token;
+    }).join('');
+    resultado = _capitalizarPrimera(normalizado.replace(/\s{2,}/g, ' ').trim());
   }
 
-  const tokens = sinPrefijos.split(/(\s+|[-/(),.:;])/g).filter(Boolean);
-  let idxPalabra = 0;
-
-  const normalizado = tokens.map((t) => {
-    if (/^\s+$/.test(t) || /^[-/(),.:;]$/.test(t)) return t;
-    const token = _normalizarTokenCargo(t, idxPalabra);
-    idxPalabra += 1;
-    return token;
-  }).join('');
-
-  return _capitalizarPrimera(normalizado.replace(/\s{2,}/g, ' ').trim());
+  resultado = _aplicarAcronimosForzados(resultado);
+  resultado = _sanitizarPuntuacion(resultado);
+  return resultado;
 }
 
 // Formato de texto libre (descripción / requisitos) a HTML estructurado.
@@ -1532,7 +1583,7 @@ function renderCard(oferta) {
     <div class="oferta-header">
       <div class="oferta-logo${instLogo.confiable ? ' oferta-logo--verificada' : ''}" title="${escAttr(instLogo.fuente)}">${instLogo.html}</div>
       <div class="oferta-meta">
-        <div class="oferta-institucion">${escHtml(oferta.institucion) || 'Institución pública'}</div>
+        <div class="oferta-institucion">${escHtml(_aplicarAcronimosForzados(oferta.institucion || '')) || 'Institución pública'}</div>
         <div class="oferta-cargo"><span class="oferta-cargo-link">${escHtml(cargoDisplay)}</span></div>
         <div class="oferta-tipo-wrap">
           ${oferta.tipo_contrato ? `<span class="badge ${tipoCss}">${tipoLabel}</span>` : ''}
@@ -1615,7 +1666,7 @@ function renderRowCompacta(oferta) {
   return `
   <div class="oferta-row${esFav ? ' favorita' : ''}" data-oferta-id="${oferta.id}" role="button" tabindex="0" aria-label="Ver detalle: ${escAttr(cargoDisplay)}">
     <div class="row-main">
-      <div class="row-inst">${escHtml(oferta.institucion) || 'Institución pública'}</div>
+      <div class="row-inst">${escHtml(_aplicarAcronimosForzados(oferta.institucion || '')) || 'Institución pública'}</div>
       <div class="row-cargo" title="${escAttr(cargoDisplay)}">${escHtml(cargoDisplay)}</div>
       ${regionCompleta ? `<div class="row-region">🗺 ${escHtml(regionCompleta)}</div>` : ''}
     </div>
@@ -2346,7 +2397,7 @@ async function abrirModal(ofertaId) {
     //   - kicker: sector (etiqueta institucional secundaria, en mayúsculas)
     //   - institución: entidad contratante destacada en línea propia
     //   - cargo: título principal, con acento visual lateral (ver CSS)
-    const institucionTxt = (o.institucion || '').trim();
+    const institucionTxt = _aplicarAcronimosForzados((o.institucion || '').trim());
     const sectorTxt      = (sector || '').trim();
     document.getElementById('modal-kicker').textContent = sectorTxt.toUpperCase();
     const instEl = document.getElementById('modal-institucion');
@@ -2385,13 +2436,13 @@ async function abrirModal(ofertaId) {
     }
 
     // Descripción / funciones — formato enriquecido.
-    // Se renderiza el contenido completo; el corte "Ver más" sólo aparece
-    // cuando el texto es muy extenso (umbral alto), para evitar que se
-    // muestre sólo el encabezado "Objetivo..." y se pierda información.
+    // Umbral bajo para que ambas secciones (Requisitos + Descripción)
+    // quepan en el primer viewport con un "Ver más" si hace falta. Los
+    // textos cortos (<= umbral) se muestran completos sin truncar.
     const desc = o.descripcion || '';
     const descHtml = formatRichText(desc, {
       truncate: true,
-      truncateAt: 2400,
+      truncateAt: 380,
       suppressHeadings: ['descripción', 'descripción del cargo', 'funciones', 'funciones del cargo']
     });
     document.getElementById('modal-descripcion').innerHTML = descHtml ||
@@ -2401,7 +2452,7 @@ async function abrirModal(ofertaId) {
     const reqTexto = o.requisitos || '';
     const reqHtml  = formatRichText(reqTexto, {
       truncate: true,
-      truncateAt: 2200,
+      truncateAt: 360,
       suppressHeadings: ['requisitos', 'requisitos principales', 'requisitos del cargo']
     });
     document.getElementById('modal-requisitos').innerHTML = reqHtml ||
@@ -2492,12 +2543,14 @@ function cerrarVisorBases(opts = {}) {
 async function copiarEnlaceBases() {
   if (!_basesViewerUrl) return;
   const btn = document.getElementById('bases-action-copy');
+  const label = btn.querySelector('span');
+  const setCopyText = (txt) => { if (label) label.textContent = txt; else btn.textContent = txt; };
   try {
     await navigator.clipboard.writeText(_basesViewerUrl);
-    btn.textContent = 'Enlace copiado ✓';
+    setCopyText('Enlace copiado ✓');
     btn.classList.add('is-copied');
     setTimeout(() => {
-      btn.textContent = 'Copiar enlace';
+      setCopyText('Copiar enlace');
       btn.classList.remove('is-copied');
     }, 1800);
   } catch {
@@ -2516,8 +2569,22 @@ function abrirVisorBases(oferta) {
   const titulo = normalizarTituloOferta(oferta.cargo) || 'Bases oficiales del concurso';
   document.getElementById('bases-viewer-title').textContent = titulo;
   document.getElementById('bases-action-open').href = basesUrl;
+  // Preview del destino: dominio + resto de la ruta resumida.
+  const urlPreview = document.getElementById('bases-viewer-url');
+  if (urlPreview) {
+    let previewText = basesUrl;
+    try {
+      const u = new URL(basesUrl);
+      const host = u.hostname.replace(/^www\./, '');
+      const path = (u.pathname || '/').replace(/\/+$/, '') || '/';
+      previewText = host + (path === '/' ? '' : path);
+      if (previewText.length > 68) previewText = previewText.slice(0, 65) + '…';
+    } catch { /* URL malformada, mostramos el valor original */ }
+    urlPreview.textContent = previewText;
+  }
   const btnCopiarBases = document.getElementById('bases-action-copy');
-  btnCopiarBases.textContent = 'Copiar enlace';
+  const copyLabel = btnCopiarBases.querySelector('span');
+  if (copyLabel) copyLabel.textContent = 'Copiar enlace';
   btnCopiarBases.classList.remove('is-copied');
   btnCopiarBases.onclick = copiarEnlaceBases;
 

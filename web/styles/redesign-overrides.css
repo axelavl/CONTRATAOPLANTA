@@ -1779,89 +1779,117 @@ header {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   MODAL DETALLE · más ancho para mostrar más contenido sin scroll.
-   Objetivos:
-   - Aprovechar el viewport disponible en desktop (hasta ~960px)
-   - Compactar header/alerta/resumen para que el contenido real (requisitos
-     y descripción) se vea sin scroll en resoluciones típicas
-   - Resumen ejecutivo adaptativo (auto-fit) para no dejar huecos cuando
-     hay pocos campos informados.
+   MODAL DETALLE · máxima densidad sin perder legibilidad.
+   Meta: que tanto REQUISITOS como DESCRIPCIÓN aparezcan en el primer
+   viewport (ambos con "Ver más") sin robar demasiado alto con el header,
+   el aviso de plazo y el resumen ejecutivo.
    ══════════════════════════════════════════════════════════════════════ */
 .modal-overlay {
-  padding: 18px !important;
+  padding: 14px !important;
 }
 .modal {
-  max-width: min(960px, calc(100vw - 36px)) !important;
-  max-height: 94vh !important;
+  max-width: min(980px, calc(100vw - 28px)) !important;
+  max-height: 96vh !important;
 }
 
-/* Header del modal más compacto + institución/cargo con mejor jerarquía */
+/* Header del modal: más compacto en alto, misma jerarquía visual */
 .modal-header {
-  padding: 14px 22px 16px !important;
+  padding: 10px 22px 12px !important;
 }
-.modal-kicker { margin-bottom: 4px !important; }
-.modal-institucion { margin-bottom: 6px !important; }
+.modal-kicker { font-size: 10px !important; margin-bottom: 2px !important; letter-spacing: 1.1px !important; min-height: 0 !important; }
+.modal-institucion { font-size: 13px !important; margin-bottom: 4px !important; }
 .modal-cargo {
-  font-size: clamp(19px, 2.1vw, 24px) !important;
-  line-height: 1.25 !important;
+  font-size: clamp(17px, 1.9vw, 21px) !important;
+  line-height: 1.22 !important;
   letter-spacing: -0.01em !important;
-  margin-bottom: 8px !important;
+  margin: 0 0 6px 0 !important;
+  padding-left: 10px !important;
+  border-left-width: 3px !important;
 }
+.modal-header #modal-badges { gap: 5px !important; }
+.modal-header .badge { font-size: 11px !important; padding: 3px 8px !important; }
 
-/* Alerta de plazo — más compacta para no robar tanto espacio vertical */
+/* Alerta de plazo — una línea compacta con icono pequeño */
 .modal-plazo-alert {
-  padding: 8px 12px !important;
-  margin-bottom: 14px !important;
-  gap: 10px !important;
+  padding: 6px 10px !important;
+  margin-bottom: 10px !important;
+  gap: 8px !important;
+  border-width: 1px !important;
 }
 .modal-plazo-icon {
-  width: 30px !important;
-  height: 30px !important;
-  font-size: 15px !important;
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 13px !important;
 }
-.modal-plazo-label { font-size: 13.5px !important; }
-.modal-plazo-fecha { font-size: 11.5px !important; }
+.modal-plazo-label { font-size: 12.5px !important; line-height: 1.15 !important; }
+.modal-plazo-fecha { font-size: 11px !important; margin-top: 1px !important; }
 
-/* Resumen ejecutivo: grid adaptativo que llena el ancho con los campos
-   visibles (2 → 1 fila de 2, 4 → 1 fila de 4, 6 → 2 filas de 3 en desktop). */
+/* Resumen ejecutivo: grid auto-fit para llenar el ancho disponible con los
+   items visibles. Con minmax de 200px entran hasta 4 columnas en desktop
+   típico (~860px de ancho interior → 4 col) y se degrada a 3/2/1 sin dejar
+   celdas huérfanas: los items ocultos con hidden no ocupan slot. */
 .modal-info-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
-  gap: 8px !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  gap: 6px !important;
 }
 .modal-info-item {
-  padding: 8px 12px !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  min-width: 0;
 }
-.modal-info-label { font-size: 10px !important; margin-bottom: 2px !important; }
-.modal-info-val   { font-size: 13px !important; line-height: 1.35 !important; }
+.modal-info-label { font-size: 10px !important; margin-bottom: 1px !important; letter-spacing: .2px !important; }
+.modal-info-val   { font-size: 12.5px !important; line-height: 1.3 !important; font-weight: 600 !important; word-break: break-word; }
 
-/* Secciones del body con menos margen entre ellas */
+/* Secciones del body: margen menor entre ellas para que Requisitos +
+   Descripción quepan en el primer viewport */
 .modal-seccion {
-  margin-bottom: 18px !important;
+  margin-bottom: 12px !important;
 }
 .modal-body {
-  padding: 16px 22px 14px !important;
+  padding: 12px 22px 10px !important;
 }
 
 /* Títulos de sección más compactos */
 .modal-seccion-titulo,
 .modal-seccion h3 {
-  font-size: 12px !important;
+  font-size: 11.5px !important;
   font-weight: 700 !important;
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
   color: var(--navy) !important;
-  margin-bottom: 8px !important;
+  margin-bottom: 6px !important;
   padding-bottom: 0 !important;
 }
 :root[data-theme="dark"] .modal-seccion-titulo,
 :root[data-theme="dark"] .modal-seccion h3 { color: var(--acento) !important; }
 
-/* Descripción/funciones/requisitos — más legibles en el modal */
+/* Descripción/funciones/requisitos — legibles pero con menor line-height */
 .modal-descripcion,
-.modal-body .prose {
-  font-size: 14.5px !important;
-  line-height: 1.65 !important;
+.modal-body .prose,
+.modal-body .modal-rich-text {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
   color: var(--texto) !important;
+}
+.modal-rich-text p { margin: 0 0 7px 0 !important; }
+.modal-rich-text ul, .modal-rich-text ol { margin: 6px 0 10px 0 !important; gap: 4px !important; }
+.modal-rich-text li { line-height: 1.55 !important; padding-left: 20px !important; }
+
+/* Truncado por defecto más corto — así REQUISITOS y DESCRIPCIÓN muestran
+   sólo unas líneas y el usuario expande con "Ver más" si quiere leer el
+   detalle completo. */
+.modal-rich-text .rt-truncate[data-rt-collapsed="true"] .rt-truncate-inner {
+  max-height: 180px !important;
+}
+@media (min-width: 900px) {
+  .modal-rich-text .rt-truncate[data-rt-collapsed="true"] .rt-truncate-inner {
+    max-height: 210px !important;
+  }
+}
+.modal-rich-text .rt-toggle {
+  margin-top: 6px !important;
+  padding: 5px 12px !important;
+  font-size: 11.5px !important;
 }
 
 /* Acciones al pie: el primario + secundarios en una sola fila cuando hay

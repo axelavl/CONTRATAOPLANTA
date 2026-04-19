@@ -154,8 +154,14 @@
     // Puntuación repetida artificialmente (...,,,  ..  ;; )
     t = t.replace(/([,;:!?]){2,}/g, '$1');
     t = t.replace(/\.{4,}/g, '...');
-    // Espacio antes de puntuación
-    t = t.replace(/ +([,.;:!?])/g, '$1');
+    // Espacio antes de puntuación (error ortográfico común en fuentes
+    // originales: "palabra ,otra" o "palabra , otra"). El punto final queda
+    // incluido porque NO debe llevar espacio antes en español.
+    t = t.replace(/[ \t]+([,.;:!?])/g, '$1');
+    // Espacio después de puntuación cuando falta (excepto antes de dígitos,
+    // para no romper "1,5" o "3.2"). Aplica a coma/punto/punto y coma/dos
+    // puntos dentro de la misma línea.
+    t = t.replace(/([,;:])(?=[^\s\d\n])/g, '$1 ');
     // Segunda pasada por si el colapso de espacios juntó dos signos distintos
     t = t.replace(/([,;:!?]){2,}/g, '$1');
     // Secuencias largas de guiones/underscores usadas como separadores

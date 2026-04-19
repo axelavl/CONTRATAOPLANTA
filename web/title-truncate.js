@@ -2,32 +2,79 @@
    Si detecta un título muy largo, lo parte en un punto "inteligente":
      ' - ', ' — ', '(', primer '.', ',', ';' o ':'.
    El título completo queda disponible en el body de la descripción.
+
+   Notas:
+   - Evitamos cortar en puntos de abreviatura (Dr., Sr., U., E.U.S., etc.)
+     o en iniciales de una sola letra. El corte por punto sólo se dispara
+     cuando el token anterior es una palabra normal (no sigla/abreviatura).
 */
 (function () {
   'use strict';
 
   var MAX_LEN = 90;
 
+  // Abreviaturas frecuentes en títulos de cargos (sector público chileno).
+  // Se comparan en minúsculas contra la palabra anterior al punto.
+  var ABBR_SET = new Set([
+    'dr','dra','drs','sr','sra','srta','srs','sres','sras',
+    'prof','ing','lic','arq','téc','tec','mag','mg','mgr','ph','phd',
+    'univ','u','ud','uds','dn','don','doña','dona',
+    'art','n','no','núm','num','cap','pág','pag',
+    'av','avda','cía','cia','ltda','spa','depto','dpto','fac',
+    'adm','admin','asist','aux','eus','esu','apu','apr','apt',
+    'slep','cmsc','sercotec','minsal','mineduc','minjus'
+  ]);
+
+  function wordBefore(text, periodIdx) {
+    var start = periodIdx;
+    while (start > 0 && /[A-Za-zÑñÁÉÍÓÚÜáéíóúü]/.test(text.charAt(start - 1))) start--;
+    return text.substring(start, periodIdx);
+  }
+
+  function isAbbreviationPeriod(text, periodIdx) {
+    var w = wordBefore(text, periodIdx);
+    if (!w) return false;
+    // Inicial (1 sola letra mayúscula): "J. M. González" → J., M. son iniciales.
+    if (w.length === 1 && /[A-ZÑ]/.test(w)) return true;
+    // Patrón de sigla con puntos intercalados (E.U.S., S.A., N.N.), detectado
+    // si el token anterior termina con un punto (ya consumido) o si hay otro
+    // punto en los 3 caracteres previos.
+    if (periodIdx >= 2 && text.charAt(periodIdx - 2) === '.') return true;
+    return ABBR_SET.has(w.toLowerCase());
+  }
+
+  function findPeriodBreak(text) {
+    var re = /\.(?=\s|$)/g;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index <= 20 || m.index >= 120) continue;
+      if (isAbbreviationPeriod(text, m.index)) continue;
+      return m.index;
+    }
+    return -1;
+  }
+
+  function findFirstMatch(text, re) {
+    var m = text.match(re);
+    if (!m || m.index == null) return -1;
+    if (m.index <= 20 || m.index >= 120) return -1;
+    return m.index;
+  }
+
   function truncateSmart(text) {
     if (!text || text.length <= MAX_LEN) return text;
-    // Separadores ordenados por preferencia
-    var seps = [
-      { re: /\s[-–—]\s/, offset: 0 },  // " - ", " – ", " — "
-      { re: /\s\(/, offset: 0 },        // " ("
-      { re: /\.(?=\s|$)/, offset: 0 },  // ". "
-      { re: /[,;:](?=\s|$)/, offset: 0 },
-    ];
-    var best = null;
-    for (var i = 0; i < seps.length; i++) {
-      var m = text.match(seps[i].re);
-      if (m && m.index > 20 && m.index < 120) {
-        if (!best || m.index < best) best = m.index;
-      }
-    }
-    if (best !== null) {
+    var candidates = [
+      findFirstMatch(text, /\s[-–—]\s/),  // " - ", " – ", " — "
+      findFirstMatch(text, /\s\(/),         // " ("
+      findPeriodBreak(text),                 // ". " (ignorando abreviaturas)
+      findFirstMatch(text, /[,;:](?=\s|$)/)  // ", " ";" ":"
+    ].filter(function (idx) { return idx > 0; });
+
+    if (candidates.length) {
+      var best = Math.min.apply(null, candidates);
       return text.substring(0, best).trim();
     }
-    // Fallback: cortar en espacio cerca del máximo
+    // Fallback: cortar en espacio cerca del máximo.
     var truncated = text.substring(0, MAX_LEN);
     var lastSpace = truncated.lastIndexOf(' ');
     if (lastSpace > 50) truncated = truncated.substring(0, lastSpace);
