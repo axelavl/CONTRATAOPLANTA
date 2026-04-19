@@ -722,6 +722,42 @@ def _fold_institution_name(value: str | None) -> str:
     return folded
 
 
+def _slugify(value: str | None, max_len: int = 80) -> str:
+    """Genera un slug URL-safe a partir de texto libre.
+
+    Se usa para construir URLs de ofertas en el sitemap:
+    ``/oferta/{id}-{slug}``. El ``id`` mantiene la unicidad; el slug
+    solo añade valor semántico para SEO y para humanos que lean el URL.
+    """
+    if not value:
+        return ""
+    import unicodedata
+    folded = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    folded = re.sub(r"[^a-zA-Z0-9]+", "-", folded).strip("-").lower()
+    return folded[:max_len].rstrip("-")
+
+
+# URLs estáticas que siempre figuran en el sitemap. Las rutas dinámicas
+# (ofertas activas) se añaden desde la DB en el endpoint /sitemap.xml.
+_STATIC_SITEMAP_URLS: tuple[tuple[str, str, str], ...] = (
+    ("/", "1.0", "hourly"),
+    ("/faq.html", "0.5", "monthly"),
+    ("/guia-busqueda-empleo-publico.html", "0.7", "weekly"),
+    ("/guia-postulacion-empleos-publicos.html", "0.7", "weekly"),
+    ("/guia-preparacion-cv-sector-publico.html", "0.7", "weekly"),
+    ("/guia-seguimiento-postulacion-publica.html", "0.7", "weekly"),
+    ("/ruta-ingreso-empleo-publico.html", "0.7", "weekly"),
+    ("/glosario-laboral-publico.html", "0.6", "monthly"),
+    ("/formacion-sector-publico-chile.html", "0.6", "monthly"),
+    ("/regimenes-laborales-sector-publico-chile.html", "0.6", "monthly"),
+    ("/editorial.html", "0.4", "monthly"),
+    ("/estadisticas.html", "0.5", "weekly"),
+    ("/terminos.html", "0.3", "yearly"),
+    ("/privacidad.html", "0.3", "yearly"),
+    ("/descargo.html", "0.3", "yearly"),
+)
+
+
 def _extract_root_domain(url: str | None) -> str | None:
     if not url:
         return None
@@ -1899,6 +1935,71 @@ def health() -> dict[str, Any] | JSONResponse:
             status_code=503,
             content={"status": "degraded", "detail": "database_unavailable"},
         )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml() -> Response:
+    """Sitemap dinámico con URLs estáticas + una entrada por oferta activa.
+
+    Las URLs siempre apuntan a ``SITE_URL`` (frontend en Cloudflare Pages),
+    aunque el sitemap se sirva desde el backend en Railway. Google/Bing
+    aceptan sitemaps cross-host siempre que ambos dominios estén
+    verificados en Search Console.
+
+    Tope de 45 000 URLs (dentro del límite oficial de 50 000). Si algún
+    día hay más ofertas activas, se parte en un sitemap-index paginado.
+    """
+    try:
+        rows = execute_fetch_all(
+            f"""
+            SELECT
+                o.id,
+                o.cargo,
+                COALESCE(o.actualizada_en, o.fecha_scraped, o.detectada_en, o.creada_en) AS lastmod
+            FROM ofertas o
+            WHERE {ACTIVE_OFFER_SQL}
+            ORDER BY o.id DESC
+            LIMIT 45000
+            """
+        )
+    except Exception:
+        logger.exception("No se pudo leer ofertas para sitemap; devolviendo solo estáticas")
+        rows = []
+
+    hoy = date.today().isoformat()
+    partes: list[str] = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for path, priority, changefreq in _STATIC_SITEMAP_URLS:
+        partes.append(
+            f"  <url><loc>{html.escape(SITE_URL + path)}</loc>"
+            f"<lastmod>{hoy}</lastmod>"
+            f"<changefreq>{changefreq}</changefreq>"
+            f"<priority>{priority}</priority></url>"
+        )
+    for row in rows:
+        slug = _slugify(row.get("cargo"))
+        loc = f"{SITE_URL}/oferta/{row['id']}" + (f"-{slug}" if slug else "")
+        raw_lastmod = row.get("lastmod")
+        if raw_lastmod is None:
+            lastmod_str = hoy
+        elif hasattr(raw_lastmod, "date"):
+            lastmod_str = raw_lastmod.date().isoformat()
+        else:
+            lastmod_str = raw_lastmod.isoformat()
+        partes.append(
+            f"  <url><loc>{html.escape(loc)}</loc>"
+            f"<lastmod>{lastmod_str}</lastmod>"
+            f"<changefreq>daily</changefreq>"
+            f"<priority>0.7</priority></url>"
+        )
+    partes.append("</urlset>")
+    return Response(
+        content="\n".join(partes),
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=3600, stale-while-revalidate=86400"},
+    )
 
 
 @app.get("/")
