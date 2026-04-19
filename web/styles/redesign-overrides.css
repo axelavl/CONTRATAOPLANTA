@@ -968,16 +968,27 @@ body, .hero, .buscador-wrap, .oferta-card, .widget, .filtro-tag, .ribbon {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   HEADER STICKY · asegurar que queda siempre arriba
+   HEADER STICKY · barra superior siempre visible al hacer scroll.
+   El ribbon va primero (arriba), el nav queda justo debajo y ambos
+   se quedan fijos juntos para dar una sensación de barra única.
    ══════════════════════════════════════════════════════════════════════ */
+.ribbon {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 110 !important;
+}
 header nav,
 header {
   position: sticky !important;
-  top: 0 !important;
+  /* 33px ≈ altura real del ribbon (padding 8px + line-height). En móvil
+     se recalcula con var(--ribbon-h) si fuera necesario, pero este valor
+     funciona bien en todos los breakpoints actuales. */
+  top: 33px !important;
   z-index: 100 !important;
 }
-/* Ribbon NO sticky — se va con el scroll */
-.ribbon { position: relative; z-index: 50; }
+@media (max-width: 600px) {
+  header nav, header { top: 31px !important; }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    LIMPIEZA · remover "Última actualización de datos" al final
@@ -1218,6 +1229,14 @@ header {
 /* 8) Sidebar: unificar separación entre widgets */
 .sidebar > .widget + .widget {
   margin-top: 14px;
+}
+
+/* Alineación visual: en desktop la primera tarjeta del sidebar (alertas
+   de empleo) debe empezar al mismo Y que el recuadro blanco de ofertas.
+   `.resultados-shell` usa margin-top: -30px para solaparse con el hero;
+   replicamos ese offset en el sidebar para que quede a la misma altura. */
+@media (min-width: 901px) {
+  .sidebar { margin-top: -30px; }
 }
 
 /* 9) Estados vacíos más amigables */
@@ -1760,26 +1779,67 @@ header {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   MODAL DETALLE · más ancho para mostrar más contenido sin scroll
+   MODAL DETALLE · más ancho para mostrar más contenido sin scroll.
+   Objetivos:
+   - Aprovechar el viewport disponible en desktop (hasta ~960px)
+   - Compactar header/alerta/resumen para que el contenido real (requisitos
+     y descripción) se vea sin scroll en resoluciones típicas
+   - Resumen ejecutivo adaptativo (auto-fit) para no dejar huecos cuando
+     hay pocos campos informados.
    ══════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  padding: 18px !important;
+}
 .modal {
-  max-width: 820px !important;
+  max-width: min(960px, calc(100vw - 36px)) !important;
   max-height: 94vh !important;
 }
 
-/* Compactar header del modal con título más flexible */
+/* Header del modal más compacto + institución/cargo con mejor jerarquía */
 .modal-header {
-  padding: 14px 20px !important;
+  padding: 14px 22px 16px !important;
 }
+.modal-kicker { margin-bottom: 4px !important; }
+.modal-institucion { margin-bottom: 6px !important; }
 .modal-cargo {
-  font-size: clamp(18px, 2.2vw, 22px) !important;
-  line-height: 1.3 !important;
+  font-size: clamp(19px, 2.1vw, 24px) !important;
+  line-height: 1.25 !important;
   letter-spacing: -0.01em !important;
+  margin-bottom: 8px !important;
 }
+
+/* Alerta de plazo — más compacta para no robar tanto espacio vertical */
+.modal-plazo-alert {
+  padding: 8px 12px !important;
+  margin-bottom: 14px !important;
+  gap: 10px !important;
+}
+.modal-plazo-icon {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 15px !important;
+}
+.modal-plazo-label { font-size: 13.5px !important; }
+.modal-plazo-fecha { font-size: 11.5px !important; }
+
+/* Resumen ejecutivo: grid adaptativo que llena el ancho con los campos
+   visibles (2 → 1 fila de 2, 4 → 1 fila de 4, 6 → 2 filas de 3 en desktop). */
+.modal-info-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  gap: 8px !important;
+}
+.modal-info-item {
+  padding: 8px 12px !important;
+}
+.modal-info-label { font-size: 10px !important; margin-bottom: 2px !important; }
+.modal-info-val   { font-size: 13px !important; line-height: 1.35 !important; }
 
 /* Secciones del body con menos margen entre ellas */
 .modal-seccion {
-  margin-bottom: 14px !important;
+  margin-bottom: 18px !important;
+}
+.modal-body {
+  padding: 16px 22px 14px !important;
 }
 
 /* Títulos de sección más compactos */
@@ -1802,6 +1862,36 @@ header {
   font-size: 14.5px !important;
   line-height: 1.65 !important;
   color: var(--texto) !important;
+}
+
+/* Acciones al pie: el primario + secundarios en una sola fila cuando hay
+   espacio, para que no roben tanta altura y el usuario vea más contenido. */
+@media (min-width: 720px) {
+  .modal-actions {
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 10px 12px !important;
+    padding: 12px 22px !important;
+  }
+  .modal-actions .btn-modal-primary {
+    flex: 1 1 260px !important;
+    width: auto !important;
+  }
+  .modal-actions-secondary {
+    flex: 1 1 260px !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+  .modal-actions-secondary .btn-modal-sec {
+    flex: 1 1 auto !important;
+  }
+  .modal-share-group {
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════

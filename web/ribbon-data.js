@@ -101,6 +101,10 @@
       }
       if (data.cierran_hoy != null) {
         setText('ribbon-cierran', fmt(data.cierran_hoy));
+        // Ajustar label a singular cuando sea exactamente 1.
+        var n = Number(data.cierran_hoy);
+        var label = (Number.isFinite(n) && n === 1) ? 'cierra hoy' : 'cierran hoy';
+        setText('ribbon-cierran-label', label);
       }
 
       // También llenar #data-last-update si está en "no disponible"

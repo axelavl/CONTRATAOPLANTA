@@ -332,7 +332,7 @@ function renderFavs() {
     } else if (dias <= 2) {
       cierreHtml = `<span class="fav-cierre fav-cierre--urgente">⚡ Cierra en ${dias === 0 ? 'hoy' : dias + (dias===1?' día':' días')}</span>`;
     } else if (dias <= 7) {
-      cierreHtml = `<span class="fav-cierre fav-cierre--pronto">⏱ Cierra en ${dias} días</span>`;
+      cierreHtml = `<span class="fav-cierre fav-cierre--pronto">⏱ Cierra en ${dias} ${dias === 1 ? 'día' : 'días'}</span>`;
     } else {
       cierreHtml = `<span class="fav-cierre fav-cierre--ok">📅 ${formatFecha(f.fecha_cierre)}</span>`;
     }
@@ -415,7 +415,7 @@ async function abrirModal(ofertaId) {
     } else if (diasR < 0) {
       cierreEl.textContent = 'Proceso cerrado'; cierreEl.style.color = 'var(--rojo)';
     } else if (diasR <= 2) {
-      cierreEl.textContent = `${formatFecha(o.fecha_cierre)} (¡${diasR === 0 ? 'hoy' : diasR + ' días'}!)`;
+      cierreEl.textContent = `${formatFecha(o.fecha_cierre)} (¡${diasR === 0 ? 'hoy' : diasR + (diasR === 1 ? ' día' : ' días')}!)`;
       cierreEl.style.color = 'var(--rojo)';
     } else if (diasR <= 7) {
       cierreEl.textContent = formatFecha(o.fecha_cierre);

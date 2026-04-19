@@ -265,12 +265,8 @@
   <!-- ══ SIDEBAR ════════════════════════════════════════════════════ -->
   <div class="sidebar">
 
-    <!-- Espacio publicitario sidebar -->
-    <div class="ad-slot ad-slot-sidebar">
-      <div class="ad-slot-inner">Publicidad</div>
-    </div>
-
-    <!-- Widget alertas -->
+    <!-- Widget alertas (primero en el sidebar para alinearse con el
+         inicio del recuadro de ofertas y dar protagonismo al CTA). -->
     <div class="widget" id="alertas">
       <div class="widget-header">
         <div class="widget-titulo">🔔 Alertas de empleo</div>
@@ -333,6 +329,11 @@
           <p class="alerta-nota">Recibirás un aviso cuando aparezcan ofertas que coincidan con tu perfil. Sin spam.</p>
         </div>
       </div>
+    </div>
+
+    <!-- Espacio publicitario sidebar -->
+    <div class="ad-slot ad-slot-sidebar">
+      <div class="ad-slot-inner">Publicidad</div>
     </div>
 
     <!-- Widget tus sectores explorados (aparece tras 3+ clics en Postular) -->
@@ -1156,7 +1157,7 @@ function frescuraTexto(oferta) {
   const d = diasDesdeHoy(iso);
   if (d === null || d > 30) return null;
   if (d <= 2) return `✨ Nueva · hace ${d === 0 ? 'menos de 1 día' : d === 1 ? '1 día' : `${d} días`}`;
-  return `Publicada hace ${d} días`;
+  return d === 1 ? 'Publicada hace 1 día' : `Publicada hace ${d} días`;
 }
 
 // ── Sugerencias populares para el estado vacío ────────────────────────────
@@ -1208,8 +1209,8 @@ function plazoInfo(oferta) {
   if (estadoOferta.key === 'upcoming') return { clase: 'status-upcoming', texto: 'Próximamente', color: 'var(--cielo)' };
   if (dias === null || dias === undefined) return { clase: 'status-active', texto: 'Disponible', color: 'var(--verde)' };
   if (dias === 1) return { clase: 'status-active', texto: 'Cierra mañana', color: 'var(--verde)' };
-  if (dias <= 5) return { clase: 'status-closing-today', texto: `Cierra en ${dias} días`, color: 'var(--naran)' };
-  return { clase: 'status-active', texto: `${dias} días disponibles`, color: 'var(--verde)' };
+  if (dias <= 5) return { clase: 'status-closing-today', texto: `Cierra en ${dias} ${dias === 1 ? 'día' : 'días'}`, color: 'var(--naran)' };
+  return { clase: 'status-active', texto: `${dias} ${dias === 1 ? 'día disponible' : 'días disponibles'}`, color: 'var(--verde)' };
 }
 
 // ── Logos institucionales (dominio oficial + proveedores de respaldo) ─────
@@ -2173,8 +2174,8 @@ function plazoDetalle(oferta) {
   if (estadoOferta.key === 'closing_today') return { clase: 'status-closing-today', label: 'Cierra hoy', icon: '⏰', sub: 'Aún puedes postular durante hoy.' };
   if (estadoOferta.key === 'upcoming') return { clase: 'status-upcoming', label: 'Próximamente', icon: 'ℹ', sub: 'La convocatoria aún no abre postulaciones.' };
   if (dias === null || dias === undefined) return { clase: 'status-active', label: 'Disponible', icon: '✓', sub: 'La institución no informó fecha de cierre.' };
-  if (dias <= 5) return { clase: 'status-closing-today', label: `Cierra pronto · ${dias} días`, icon: '⏰', sub: 'Revisa requisitos y postula con anticipación.' };
-  return { clase: 'status-active', label: `Disponible · ${dias} días`, icon: '✓', sub: 'La postulación sigue vigente.' };
+  if (dias <= 5) return { clase: 'status-closing-today', label: `Cierra pronto · ${dias} ${dias === 1 ? 'día' : 'días'}`, icon: '⏰', sub: 'Revisa requisitos y postula con anticipación.' };
+  return { clase: 'status-active', label: `Disponible · ${dias} ${dias === 1 ? 'día' : 'días'}`, icon: '✓', sub: 'La postulación sigue vigente.' };
 }
 
 // ── Modal de detalle ───────────────────────────────────────────────────────
