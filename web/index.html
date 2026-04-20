@@ -25,9 +25,10 @@
 <meta name="twitter:title" content="contrata o planta .cl — Empleo público en Chile">
 <meta name="twitter:description" content="Busca vacantes del sector público chileno con filtros por institución, región y tipo de cargo.">
 <meta name="twitter:image" content="https://estadoemplea.pages.dev/og-default.jpg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+<!-- Fuentes self-hosted desde web/fonts/. Ver web/styles/fonts.css — ya no
+     hay dependencia con fonts.googleapis.com / fonts.gstatic.com, con lo
+     que el CSP puede cerrar `style-src` y `font-src` a `'self'`. -->
+<link rel="stylesheet" href="styles/fonts.css">
 <!-- Analytics (Umami) — activable editando los dos meta tags con el
      URL del script y el website_id de la instancia. Si quedan vacíos,
      `window.track()` queda como no-op y el resto del código sigue

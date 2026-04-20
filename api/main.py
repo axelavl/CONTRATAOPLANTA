@@ -1649,8 +1649,8 @@ _SECURITY_HEADERS = {
     "Content-Security-Policy-Report-Only": (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
         "img-src 'self' data: https:; "
         "connect-src 'self' https://estadoemplea.pages.dev; "
         "frame-ancestors 'self'; "
