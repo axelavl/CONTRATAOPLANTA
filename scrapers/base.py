@@ -70,28 +70,26 @@ except ImportError:
 #  CONFIGURACIÓN
 # ═══════════════════════════════════════════════════════════════════
 
-def _requerido(nombre: str) -> str:
-    """Lee una variable de entorno obligatoria o aborta.
+# DB config centralizada en `db/config.py` — única fuente de verdad.
+# Antes había definiciones duplicadas en api/main.py, scrapers/base.py
+# y config.py (con password hardcodeado como fallback). Ver la docstring
+# de `db/config.py` para precedencia DATABASE_URL vs split vars.
+#
+# `scrapers/base.py` añade `sys.path` si alguien importa este módulo
+# como script suelto. El `_PROJECT_ROOT` siguiente asegura que
+# `db.config` sea resolvible desde cualquier punto de entrada.
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
-    Post-audit 1.1: se elimina cualquier fallback con credenciales
-    hardcodeadas. Si falta la variable, el proceso debe fallar ruidoso.
-    """
-    valor = os.getenv(nombre)
-    if not valor:
-        sys.stderr.write(
-            f"[FATAL] Variable de entorno {nombre!r} no definida. "
-            f"Crea un archivo .env a partir de .env.example.\n"
-        )
-        sys.exit(2)
-    return valor
+from db.config import DB_CONFIG as _DB_CONFIG_STR  # noqa: E402
 
-
+# El resto de este archivo y los scrapers esperaban `port` como int,
+# mientras que el dict centralizado lo devuelve como string (para
+# compatibilidad con pg8000). Convertimos acá una sola vez.
 DB_CONFIG: dict[str, Any] = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", "5432")),
-    "dbname": os.getenv("DB_NAME", "empleospublicos"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": _requerido("DB_PASSWORD"),
+    **_DB_CONFIG_STR,
+    "port": int(_DB_CONFIG_STR["port"]),
 }
 
 # Timeout global de HTTP (post-audit 1.10)

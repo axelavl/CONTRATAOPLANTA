@@ -83,13 +83,10 @@ def _requerido_env(nombre: str) -> str:
     return valor
 
 
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "dbname": os.getenv("DB_NAME", "empleospublicos"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": _requerido_env("DB_PASSWORD"),
-}
+# DB config centralizada: `db/config.py` es la única fuente de verdad.
+# Lee `DATABASE_URL` (Railway) o los split `DB_HOST` / `DB_PORT` / ...
+# y aborta loud si no hay password. Ver docstring de ese módulo.
+from db.config import DB_CONFIG  # noqa: E402  (sys.path seteado arriba)
 
 DEFAULT_ALLOW_ORIGINS = [
     "http://localhost:3000",

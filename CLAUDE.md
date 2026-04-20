@@ -53,14 +53,21 @@ pytest tests/test_extraction.py::TestClassName::test_name   # one test
 
 `tests/conftest.py` sets a fake `DATABASE_URL` so pure-helper tests import without a live DB. Tests that hit the DB (`test_db_persistence.py`, `test_db_helpers.py`) need a running Postgres reachable at that DSN.
 
-## Two environment-variable conventions (do not unify without care)
+## DB configuration — single source of truth
 
-Two different DB config styles coexist and both are live:
+`db/config.py` is the only module that reads DB env vars and decides how to connect. Every other layer imports from there:
 
-- **`config.py`** — reads `DATABASE_URL` (single DSN) for SQLAlchemy. Used by `run_scrapers.py` and `db/database.py`.
-- **`DB_CONFIG` dict** — reads split `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` for psycopg2. Used by `api/main.py`, `scrapers/base.py`, and most individual scrapers.
+- `from db.config import DB_CONFIG` — dict psycopg2-ready (what `api/main.py` and `scrapers/base.py` consume).
+- `from db.config import get_database_config` — returns a frozen `DatabaseConfig` dataclass with `.to_psycopg2_kwargs()`, `.to_asyncpg_kwargs()`, `.to_sqlalchemy_url()`.
 
-`.env.example` documents the split-var style (primary for the API + new scrapers). The legacy orchestrator path still needs `DATABASE_URL`. When adding a new component, prefer the split `DB_*` style to match `api/main.py` and `scrapers/base.py`.
+Precedence:
+
+1. `DATABASE_URL` (what Railway / Heroku inject when you add a Postgres plugin). Password must be present in the DSN.
+2. Split vars `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` (dev with `.env`). `DB_PASSWORD` is required; the rest have dev defaults.
+
+Without password in either path, the module raises `RuntimeError` on import. Do not add hardcoded fallbacks back.
+
+`config.py` (the non-DB config) derives its `DB_URL` from `db.config` via a `default_factory`, so legacy code that imported `from config import config; config.DB_URL` still works.
 
 Other env vars in play: `SITE_URL`, `CORS_ALLOW_ORIGINS` (CSV; falls back to a hard-coded safe list in `api/main.py`), `RESEND_API_KEY` / `EMAIL_FROM`, `MEILISEARCH_URL` / `MEILISEARCH_API_KEY`, `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID`, `LOG_DIR` (default `logs/`).
 
