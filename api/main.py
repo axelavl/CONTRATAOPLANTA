@@ -1061,6 +1061,49 @@ app.add_middleware(
 )
 
 
+# ── Security headers middleware ───────────────────────────────────────────
+# Añade los mismos headers que sirve Cloudflare Pages (`web/_headers`) en
+# todas las respuestas del backend: HTML SSR (`/`, `/oferta/{id}`,
+# `/sitemap.xml`) y JSON (`/api/...`). Defense-in-depth para navegadores
+# que lleguen directo a Railway sin pasar por Pages.
+#
+# CSP va en modo Report-Only por la misma razón que en `_headers`: el
+# frontend tiene JS/CSS inline.
+_SECURITY_HEADERS = {
+    "X-Frame-Options": "SAMEORIGIN",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+    "Permissions-Policy": (
+        "camera=(), microphone=(), geolocation=(), payment=(), "
+        "usb=(), interest-cohort=()"
+    ),
+    "Content-Security-Policy-Report-Only": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://estadoemplea.pages.dev; "
+        "frame-ancestors 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self' https://estadoemplea.pages.dev; "
+        "object-src 'none'; "
+        "upgrade-insecure-requests"
+    ),
+}
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        # setdefault para no sobrescribir si un endpoint ya los setea
+        # (ej: un iframe embebible podría querer X-Frame-Options distinto).
+        response.headers.setdefault(name, value)
+    return response
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     # No bloquear el arranque si Postgres aún no responde: la API queda viva
