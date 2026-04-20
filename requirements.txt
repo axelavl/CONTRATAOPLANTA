@@ -4,11 +4,16 @@
 # ============================================================
 
 # ── HTTP async y scraping ───────────────────────────────────
-aiohttp==3.11.13
+# aiohttp 3.13.5: fixea 20+ CVEs de 2025-2026 sobre 3.11.13
+# (CVE-2025-53643, CVE-2025-69223..69230, CVE-2026-22815,
+#  CVE-2026-34513..34525). API async compatible.
+aiohttp==3.13.5
 beautifulsoup4==4.12.3
 lxml==5.1.0
 requests==2.33.1
-pdfplumber==0.11.4
+# pdfplumber 0.11.9 arrastra pdfminer.six con fix de CVE-2025-64512
+# y CVE-2025-70559.
+pdfplumber==0.11.9
 
 # ── Base de datos ───────────────────────────────────────────
 psycopg2-binary==2.9.9
@@ -18,9 +23,12 @@ SQLAlchemy==2.0.30
 alembic==1.13.3
 
 # ── API FastAPI ─────────────────────────────────────────────
-fastapi==0.110.0
-uvicorn[standard]==0.27.1
-pydantic[email]==2.6.3
+# fastapi 0.125 acepta starlette 0.49.1 (fix CVE-2025-62727).
+# fastapi 0.118 estaba pineada a starlette<0.49 → bloqueaba el fix.
+fastapi==0.125.0
+starlette==0.49.1
+uvicorn[standard]==0.32.0
+pydantic[email]==2.9.2
 slowapi==0.1.9
 PyJWT==2.12.1
 
@@ -48,4 +56,5 @@ apscheduler==3.10.4
 rich==13.7.1
 
 # ── Generación de imágenes OG/Twitter por oferta ────────────
-Pillow==10.4.0
+# Pillow 12.2.0: fix CVE-2026-25990 (fuzzing) y CVE-2026-40192.
+Pillow==12.2.0
