@@ -15,13 +15,16 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 
-from config import config
+from db.config import get_database_config
 
 logger = logging.getLogger(__name__)
 
 # ── Engine y sesión ──────────────────────────────────────────────────────────
+# DSN derivado de `db.config` (misma fuente que usan api/main.py y
+# scrapers/base.py). No usar `config.DB_URL` de `config.py` — aunque
+# coincide hoy, mantener un único punto de resolución evita drift.
 engine = create_engine(
-    config.DB_URL,
+    get_database_config().to_sqlalchemy_url(),
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,       # verifica conexión antes de usar
