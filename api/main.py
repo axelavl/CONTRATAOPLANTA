@@ -87,6 +87,7 @@ def _requerido_env(nombre: str) -> str:
 # Lee `DATABASE_URL` (Railway) o los split `DB_HOST` / `DB_PORT` / ...
 # y aborta loud si no hay password. Ver docstring de ese módulo.
 from db.config import DB_CONFIG  # noqa: E402  (sys.path seteado arriba)
+from db import pool as db_pool  # noqa: E402  (pool de conexiones psycopg2)
 
 DEFAULT_ALLOW_ORIGINS = [
     "http://localhost:3000",
@@ -327,8 +328,18 @@ class _DictCursorWrapper:
 
 
 def get_connection() -> Any:
+    """Abre una conexión para una request.
+
+    Preferencia: sacarla del pool (`db.pool`, psycopg2 threaded).
+    Fallback: `psycopg2.connect()` directo si el pool aún no está
+    inicializado (import temprano) o `pg8000.connect()` si psycopg2
+    no está disponible en el entorno.
+    """
     try:
         if _PG_DRIVER == "psycopg2":
+            pool = db_pool.get_pool()
+            if pool is not None:
+                return pool.getconn()
             return psycopg2.connect(**DB_CONFIG)
         else:
             return _pg8000.connect(
@@ -343,6 +354,19 @@ def get_connection() -> Any:
         raise HTTPException(status_code=503, detail="Base de datos no disponible") from exc
 
 
+def _release_connection(connection: Any) -> None:
+    """Devuelve la conexión al pool o la cierra si vino del fallback."""
+    if connection is None:
+        return
+    if _PG_DRIVER == "psycopg2" and db_pool.get_pool() is not None:
+        db_pool.return_connection(connection)
+        return
+    try:
+        connection.close()
+    except Exception:
+        pass
+
+
 @contextmanager
 def get_cursor():
     connection = get_connection()
@@ -354,7 +378,7 @@ def get_cursor():
             cursor = _DictCursorWrapper(connection.cursor())
             yield connection, cursor
     finally:
-        connection.close()
+        _release_connection(connection)
 
 
 def execute_fetch_all(sql: str, params: list[Any] | tuple[Any, ...] | None = None) -> list[dict[str, Any]]:
@@ -1648,6 +1672,13 @@ async def add_security_headers(request: Request, call_next):
 
 @app.on_event("startup")
 def on_startup() -> None:
+    # No bloquear el arranque si Postgres aún no responde: la API queda viva
+    # respondiendo 503 por request hasta que la DB vuelva. Si abortamos aquí,
+    # uvicorn cae y nginx devuelve 502/connection refused al frontend.
+    try:
+        db_pool.init_pool()
+    except Exception as exc:
+        logger.error("Pool de DB no inicializado al arranque: %s", exc)
     # Antes corríamos `ensure_api_schema()` (60+ DDL `IF NOT EXISTS`) en
     # cada arranque. La auditoría marcó ese patrón como antipatrón: hace
     # lento el arranque, con múltiples workers compite con sí mismo, y
@@ -1658,6 +1689,15 @@ def on_startup() -> None:
     # necesita correrla one-shot contra una DB heredada, pero NO se
     # invoca automáticamente. Ver `docs/MIGRATIONS.md` para el runbook.
     logger.info("API iniciada (schema gestionado por Alembic)")
+
+
+@app.on_event("shutdown")
+def on_shutdown() -> None:
+    # Cierra limpiamente las conexiones del pool. Importante al redeploy:
+    # sin esto, Railway puede matar el proceso antes de que Postgres libere
+    # las conexiones y el contador de max_connections crece sin volver a
+    # bajar hasta que Postgres las expira por idle_timeout.
+    db_pool.close_pool()
 
 
 @app.get("/api/ofertas")
