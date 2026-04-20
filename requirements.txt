@@ -12,6 +12,10 @@ pdfplumber==0.11.4
 
 # ── Base de datos ───────────────────────────────────────────
 psycopg2-binary==2.9.9
+# SQLAlchemy ya se usaba vía `db/database.py`; ahora se pinnea aquí para
+# que Alembic pueda importar el metadata en las migraciones.
+SQLAlchemy==2.0.30
+alembic==1.13.3
 
 # ── API FastAPI ─────────────────────────────────────────────
 fastapi==0.110.0

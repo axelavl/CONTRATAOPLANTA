@@ -1648,16 +1648,16 @@ async def add_security_headers(request: Request, call_next):
 
 @app.on_event("startup")
 def on_startup() -> None:
-    # No bloquear el arranque si Postgres aún no responde: la API queda viva
-    # respondiendo 503 por request hasta que la DB vuelva. Si abortamos aquí,
-    # uvicorn cae y nginx devuelve 502/connection refused al frontend.
-    try:
-        ensure_api_schema()
-        logger.info("API iniciada y esquema verificado")
-    except Exception as exc:
-        logger.error(
-            "API iniciada sin validar esquema (DB no disponible aún): %s", exc
-        )
+    # Antes corríamos `ensure_api_schema()` (60+ DDL `IF NOT EXISTS`) en
+    # cada arranque. La auditoría marcó ese patrón como antipatrón: hace
+    # lento el arranque, con múltiples workers compite con sí mismo, y
+    # enmascara el drift real entre código y DB. Ahora el schema se
+    # aplica con Alembic como paso explícito del deploy:
+    #     alembic upgrade head
+    # La función `ensure_api_schema()` sigue disponible por si alguien
+    # necesita correrla one-shot contra una DB heredada, pero NO se
+    # invoca automáticamente. Ver `docs/MIGRATIONS.md` para el runbook.
+    logger.info("API iniciada (schema gestionado por Alembic)")
 
 
 @app.get("/api/ofertas")
