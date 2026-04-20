@@ -1365,7 +1365,9 @@ async function loadRevision() {
   tbody.innerHTML = `<tr class="loading-row"><td colspan="7"><span class="spinner"></span></td></tr>`;
   document.getElementById('rev-resumen').innerHTML = '';
   try {
-    const d = await api(`/revision${tipo?'?tipo='+tipo:''}&limit=100`);
+    const qs = new URLSearchParams({ limit: '100' });
+    if (tipo) qs.set('tipo', tipo);
+    const d = await api(`/revision?${qs}`);
     // Resumen de contadores
     const resumen = d.resumen||{};
     const etiquetas = {url_rota:'🔴 URL rota', sin_sector:'🏷️ Sin sector',
