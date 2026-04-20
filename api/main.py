@@ -1679,13 +1679,16 @@ def on_startup() -> None:
         db_pool.init_pool()
     except Exception as exc:
         logger.error("Pool de DB no inicializado al arranque: %s", exc)
-    try:
-        ensure_api_schema()
-        logger.info("API iniciada y esquema verificado")
-    except Exception as exc:
-        logger.error(
-            "API iniciada sin validar esquema (DB no disponible aún): %s", exc
-        )
+    # Antes corríamos `ensure_api_schema()` (60+ DDL `IF NOT EXISTS`) en
+    # cada arranque. La auditoría marcó ese patrón como antipatrón: hace
+    # lento el arranque, con múltiples workers compite con sí mismo, y
+    # enmascara el drift real entre código y DB. Ahora el schema se
+    # aplica con Alembic como paso explícito del deploy:
+    #     alembic upgrade head
+    # La función `ensure_api_schema()` sigue disponible por si alguien
+    # necesita correrla one-shot contra una DB heredada, pero NO se
+    # invoca automáticamente. Ver `docs/MIGRATIONS.md` para el runbook.
+    logger.info("API iniciada (schema gestionado por Alembic)")
 
 
 @app.on_event("shutdown")

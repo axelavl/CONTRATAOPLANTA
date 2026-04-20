@@ -18,7 +18,7 @@ Spanish is the working language for code comments, log messages, DB identifiers,
 - PostgreSQL **14+**, default DB name `empleospublicos`.
 - Optional: Meilisearch (search), Resend (email), Playwright (JS-heavy scrapers).
 
-Install: `pip install -r requirements.txt`. Schema: `psql -f db/schema.sql`. Migrations live in `db/migrations/` and are numbered (`001_*.sql`, `002_*.sql`, `003_*.sql`) — apply in order.
+Install: `pip install -r requirements.txt`. Schema: `psql -f db/schema.sql`. Pre-Alembic migrations live in `db/migrations/` (`001_*.sql`…`005_*.sql`) and apply in order. **New schema changes go through Alembic** — see `docs/MIGRATIONS.md`. `alembic upgrade head` is the deploy step; the legacy `ensure_api_schema()` no longer runs at startup.
 
 ## Common commands
 
