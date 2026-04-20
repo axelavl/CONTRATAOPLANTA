@@ -2551,3 +2551,231 @@ header {
   .sort-wrap-label { font-size: 10.5px; }
   .sort-wrap .ctrl-select--sort { font-size: 12px !important; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   UX FIXES (audit de bugs mobile + desktop, abril 2026).
+
+   Cierra 7 bugs visuales reportados:
+   1. Hamburguesa: no aparecía en mobile cuando nav-mobile.js no cargaba.
+   2. Widgets del sidebar (alertas): cortados arriba por `overflow: hidden`.
+   3. Bloque "Explora por región/sector": fondo contrastaba mal con el
+      body (especialmente dark mode) por --surface-alt sin definir.
+   4. Botón "Ordenar por": dropdown nativo angosto vs. el trigger.
+   5. Tabs vigentes/cerradas: el estado activo casi invisible en dark.
+   6. Autocomplete/comunas dropdowns: ancho menor que el trigger.
+   7. Modal de detalle en mobile: cortado arriba/abajo (sin safe-area).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Hamburguesa: muestra en mobile SIN depender de .js-nav ───────
+   El CSS original ocultaba con `.hamburger { display: none }` y sólo
+   lo mostraba vía `.js-nav .hamburger { display: flex }` dentro del
+   media. Si la clase `.js-nav` no llega al <html> (CSP, JS falla,
+   script en cache stale), el botón queda invisible. Regla baseline
+   sin dependencia de JS:
+*/
+@media (max-width: 600px) {
+  .hamburger { display: flex !important; }
+  .nav-links { display: none !important; }
+}
+
+/* ── 2. Widgets del sidebar: overflow visible ──────────────────────
+   `.widget { overflow: hidden }` en index.css corta los recuadros
+   cuando tienen border-radius + children con margin negativo (como
+   los CTA flotantes del widget de alertas). Reemplazamos por hidden
+   sólo en el contenido interno, dejando el contenedor externo con
+   overflow visible para que los focus rings, tooltips y box-shadows
+   no se corten.
+*/
+.widget {
+  overflow: visible;
+}
+.widget-body,
+.widget-content {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* ── 3. Bloque "Explora por región/sector": fondo integrado ────────
+   Define --surface-alt con color derivado del tema activo para que
+   los chips se integren con el body en vez de flotar sobre un fondo
+   gris crudo. Además, quitamos el border-top separador que lo hacía
+   ver desconectado.
+*/
+:root {
+  --surface-alt: rgba(15, 23, 42, 0.04);
+}
+:root[data-theme="dark"] {
+  --surface-alt: rgba(255, 255, 255, 0.06);
+}
+
+.explora-landings {
+  border-top: none;
+  margin-top: 24px;
+}
+.explora-landings-chips a {
+  background: var(--surface-alt);
+  border: 1px solid transparent;
+  color: var(--text-secondary, var(--texto2, #374151));
+}
+.explora-landings-chips a:hover,
+.explora-landings-chips a:focus-visible {
+  background: var(--navy-tint, rgba(10, 46, 110, 0.08));
+  border-color: var(--navy, #0A2E6E);
+  color: var(--navy, #0A2E6E);
+}
+:root[data-theme="dark"] .explora-landings-chips a {
+  color: var(--texto2, rgba(255, 255, 255, 0.72));
+}
+:root[data-theme="dark"] .explora-landings-chips a:hover,
+:root[data-theme="dark"] .explora-landings-chips a:focus-visible {
+  background: rgba(234, 184, 88, 0.14);
+  border-color: var(--acento);
+  color: var(--acento);
+}
+:root[data-theme="dark"] .explora-landings-seccion h2 {
+  color: var(--texto, #fafafa);
+}
+
+/* ── 4. Sort-wrap: mostrar la opción activa y corregir ancho ─────────
+   El `<select>` con `appearance: none` ocultaba su texto por padding
+   insuficiente. Le damos espacio + min-width para que la opción se
+   lea completa y el dropdown nativo iguale al trigger visualmente.
+*/
+.sort-wrap {
+  min-width: 200px;
+}
+.sort-wrap .ctrl-select--sort {
+  padding: 0 6px 0 2px !important;
+  min-width: 120px;
+  width: 100%;
+  /* Fuerza al browser a mostrar el texto del value seleccionado en
+     vez de dejarlo en blanco cuando `appearance: none` es muy
+     agresivo (bug Chromium histórico). */
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── 5. Tabs Vigentes / Cerradas: contraste del estado activo ────────
+   El .activo en light ya tiene buen contraste (fondo azul, texto
+   blanco). En dark, el fondo activo era navy y el texto navy — casi
+   invisible. Forzamos acento dorado para el texto activo en dark
+   mode y un background más claro para que se lea.
+*/
+.estado-tab {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.estado-tab.activo {
+  color: #fff;
+}
+:root[data-theme="dark"] .estado-tab.activo {
+  color: var(--azul, #0A2E6E) !important;
+  background: var(--acento, #E8A820) !important;
+}
+:root[data-theme="dark"] .estado-listado-tabs::before {
+  background: var(--acento, #E8A820) !important;
+}
+
+/* Filter tags (Cierra pronto / Últimas 48h / Sin experiencia): también
+   más claros cuando están activos. */
+.filtro-tag.activo {
+  background: var(--navy, #0A2E6E) !important;
+  color: #fff !important;
+  border-color: var(--navy, #0A2E6E) !important;
+}
+:root[data-theme="dark"] .filtro-tag.activo {
+  background: var(--acento, #E8A820) !important;
+  color: var(--azul, #0A2E6E) !important;
+  border-color: var(--acento, #E8A820) !important;
+}
+
+/* ── 6. Dropdowns: ancho alineado al trigger ──────────────────────
+   El autocomplete de institución y el panel de comunas salían con
+   ancho `auto` (el del contenido), pero el botón trigger ocupa el
+   100% del campo. El desalineamiento se ve como un "popup flotante
+   angosto". Forzamos ancho ≥ el del padre.
+*/
+.autocomplete-wrap {
+  position: relative;
+  width: 100%;
+}
+.autocomplete-dropdown {
+  left: 0;
+  right: 0;
+  width: auto;
+  min-width: 100%;
+}
+.comunas-selector {
+  position: relative;
+}
+.comunas-panel {
+  left: 0;
+  right: auto;
+  width: 100%;
+  min-width: 280px;
+}
+
+/* ── 7. Modal de detalle en mobile: safe-area + 100dvh ────────────
+   En mobile `max-height: 100vh` solapaba status bar / notch / home
+   indicator. Reemplazamos por `100dvh` (dynamic viewport) y
+   añadimos `padding` con `env(safe-area-inset-*)` para que el
+   contenido respete los márgenes del device.
+   Además fijamos `overflow-y: auto` explícito y `overscroll-behavior:
+   contain` para evitar que el scroll del modal arrastre el body.
+*/
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: 0 !important;
+  }
+  .modal {
+    max-height: none !important;
+    height: 100dvh;
+    border-radius: 0 !important;
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ── 8. Mejoras complementarias (touch + focus) ───────────────────
+   Evita el 300ms-tap delay de browsers mobile y mejora el focus
+   ring visible con keyboard (sin molestar a usuarios mouse).
+*/
+button, [role="button"], .vista-btn, .filtro-tag,
+.pag-btn, .explora-landings-chips a {
+  touch-action: manipulation;
+}
+button:focus-visible,
+.vista-btn:focus-visible,
+.estado-tab:focus-visible,
+.filtro-tag:focus-visible,
+.explora-landings-chips a:focus-visible,
+.sort-wrap:focus-within {
+  outline: 2px solid var(--navy, #0A2E6E);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+:root[data-theme="dark"] button:focus-visible,
+:root[data-theme="dark"] .vista-btn:focus-visible,
+:root[data-theme="dark"] .estado-tab:focus-visible,
+:root[data-theme="dark"] .filtro-tag:focus-visible,
+:root[data-theme="dark"] .explora-landings-chips a:focus-visible,
+:root[data-theme="dark"] .sort-wrap:focus-within {
+  outline-color: var(--acento, #E8A820);
+}

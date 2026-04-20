@@ -37,6 +37,16 @@
           </button>
         </div>
       </div>
+      <!-- Botón hamburguesa estático: aparece en mobile aunque
+           `nav-mobile.js` no alcance a inyectarlo (fallo de carga,
+           CSP, etc.). Los 3 spans son las barras; la clase `.abierto`
+           la agrega el JS al abrir. El JS engancha el click al
+           overlay/panel via `document.getElementById('hamburger-btn')`. -->
+      <button class="hamburger" id="hamburger-btn" type="button"
+              aria-label="Abrir menú" aria-expanded="false"
+              aria-controls="nav-mobile-panel">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
 </header>
