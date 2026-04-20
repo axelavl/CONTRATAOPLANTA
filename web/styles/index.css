@@ -2500,3 +2500,81 @@ footer {
   .oferta-row-header { padding: 0 10px; }
   .col-sort, .col-sort-label { font-size: 9.5px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SSR de oferta: bloque visible solo para crawlers sin JavaScript.
+   El backend lo inyecta en /oferta/{id}-{slug}; el JS del frontend
+   añade `.js-nav` al <html> al cargar, lo que lo oculta para usuarios
+   reales (que ven el modal de oferta en su lugar).
+   =================================================================== */
+.oferta-ssr {
+  max-width: 820px;
+  margin: 32px auto;
+  padding: 28px 24px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text, #111);
+}
+.oferta-ssr-kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #6b7280);
+  margin: 0 0 8px;
+}
+.oferta-ssr h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(22px, 4vw, 34px);
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+.oferta-ssr-institucion {
+  font-size: 17px;
+  color: var(--text-secondary, #374151);
+  margin: 0 0 24px;
+}
+.oferta-ssr-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 0 0 24px;
+  font-size: 14.5px;
+}
+.oferta-ssr-meta dt {
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+}
+.oferta-ssr-meta dd {
+  margin: 0;
+}
+.oferta-ssr-descripcion h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+.oferta-ssr-descripcion p {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+.oferta-ssr-cta {
+  margin: 28px 0 0;
+}
+.oferta-ssr-cta a {
+  display: inline-block;
+  padding: 10px 18px;
+  background: var(--azul, #0A2E6E);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Con JS el usuario ve el modal real; escondemos el SSR para evitar
+   duplicación. El crawler no ejecuta el script inline que setea
+   `js-nav`, así que para él el bloque sigue visible. */
+html.js-nav .oferta-ssr {
+  display: none;
+}
