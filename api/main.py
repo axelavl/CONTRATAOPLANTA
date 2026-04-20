@@ -339,8 +339,9 @@ app.add_middleware(
 # `/sitemap.xml`) y JSON (`/api/...`). Defense-in-depth para navegadores
 # que lleguen directo a Railway sin pasar por Pages.
 #
-# CSP va en modo Report-Only por la misma razón que en `_headers`: el
-# frontend tiene JS/CSS inline.
+# CSP en modo **enforce** tras #164 + #165 + ciclo de observación sin
+# violations. `style-src 'unsafe-inline'` se mantiene por los `style=`
+# del HTML de oferta — moverlos a clases va en otro PR.
 _SECURITY_HEADERS = {
     "X-Frame-Options": "SAMEORIGIN",
     "X-Content-Type-Options": "nosniff",
@@ -350,7 +351,7 @@ _SECURITY_HEADERS = {
         "camera=(), microphone=(), geolocation=(), payment=(), "
         "usb=(), interest-cohort=()"
     ),
-    "Content-Security-Policy-Report-Only": (
+    "Content-Security-Policy": (
         "default-src 'self'; "
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "

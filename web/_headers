@@ -2,11 +2,13 @@
 # este directorio (frontend en estadoemplea.pages.dev). El backend
 # (Railway) añade los mismos headers vía middleware en `api/main.py`.
 #
-# CSP va en modo Report-Only por ahora: el frontend tiene mucho JS y CSS
-# inline (`<script>` dentro de `index.html`, `onclick="..."` en botones de
-# paginación) que requiere `'unsafe-inline'`. Promover a
-# `Content-Security-Policy` (enforce) cuando se saque el JS/CSS inline a
-# archivos externos.
+# CSP en modo **enforce**. Tras pasar por PR #164 (JS inline a
+# archivos externos + onclick= a addEventListener), PR #165 (fuentes
+# self-hosted, fuera `fonts.googleapis.com` y `fonts.gstatic.com`) y
+# un ciclo de observación en modo Report-Only sin violations, el
+# browser ahora **bloquea** cualquier recurso que viole la política.
+# `style-src` mantiene `'unsafe-inline'` por los `style=` del HTML de
+# oferta — moverlos a clases va en otro PR.
 
 /*
   X-Frame-Options: SAMEORIGIN
@@ -14,7 +16,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; connect-src 'self' https://contrataoplanta-production.up.railway.app; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://contrataoplanta-production.up.railway.app; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; connect-src 'self' https://contrataoplanta-production.up.railway.app; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://contrataoplanta-production.up.railway.app; object-src 'none'; upgrade-insecure-requests
 
 # Hash en nombres todavía no está implementado, así que los assets no
 # se cachean eternamente. Cuando se versionen (ej: index.abc123.css)
