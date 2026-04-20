@@ -1071,7 +1071,119 @@ def build_job_posting_jsonld(
             "value": value,
         }
 
-    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    # JSON embebido en <script type="application/ld+json">: escapar
+    # `<`, `>`, `&` y `'` a sus secuencias unicode para que el parser
+    # JSON los lea igual y el parser HTML no pueda terminar el tag
+    # (vector `</script>` dentro de un campo de texto). OWASP JSON-in-HTML.
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    return (
+        payload
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+
+
+def _descripcion_a_parrafos_html(texto: str, max_chars: int = 2000) -> str:
+    """Convierte un texto plano de descripción en `<p>` escapados.
+
+    No asumimos HTML en entrada — el scraper guarda descripción como
+    texto plano y si llegara con tags los escapamos literalmente (más
+    seguro que renderizarlos). Corta a ``max_chars`` y agrupa oraciones
+    en párrafos de hasta ~400 caracteres para legibilidad.
+    """
+    if not texto:
+        return ""
+    texto = re.sub(r"\s+", " ", texto).strip()
+    if len(texto) > max_chars:
+        texto = texto[: max_chars - 1].rstrip(" ,.-") + "…"
+    parrafos: list[str] = []
+    buffer = ""
+    for oracion in re.split(r"(?<=[.!?])\s+", texto):
+        if not oracion:
+            continue
+        if buffer and len(buffer) + len(oracion) > 400:
+            parrafos.append(buffer.strip())
+            buffer = oracion
+        else:
+            buffer = (buffer + " " + oracion).strip() if buffer else oracion
+    if buffer:
+        parrafos.append(buffer.strip())
+    return "".join(f"<p>{html.escape(p)}</p>" for p in parrafos)
+
+
+def build_offer_ssr_html(oferta: dict[str, Any]) -> str:
+    """Genera el bloque HTML visible para crawlers de una oferta.
+
+    Antes, `/oferta/{id}-{slug}` devolvía el SPA vacío con meta tags y
+    JSON-LD. Google sabía *de qué* era la página pero no veía contenido
+    en el body — el cargo, la institución y la descripción se inyectaban
+    con JS al abrir el modal. Con este bloque, el crawler recibe el
+    contenido real en el HTML inicial; el CSS en `web/styles/index.css`
+    lo oculta cuando JS está activo (regla ``html.js-nav .oferta-ssr``).
+    """
+    cargo = (oferta.get("cargo") or "").strip() or "Oferta pública"
+    institucion = (oferta.get("institucion") or "").strip()
+    region = (oferta.get("region") or "").strip()
+    ciudad = (oferta.get("ciudad") or "").strip()
+    tipo = (oferta.get("tipo_contrato") or "").strip()
+    jornada = (oferta.get("jornada") or "").strip()
+    renta = _format_renta_bruta(oferta) or ""
+    fecha_pub = _format_fecha_larga(oferta.get("fecha_publicacion")) or ""
+    fecha_cie = _format_fecha_larga(oferta.get("fecha_cierre")) or ""
+    descripcion_html = _descripcion_a_parrafos_html(oferta.get("descripcion") or "")
+    url_oferta = (oferta.get("url_oferta") or "").strip()
+
+    partes: list[str] = [
+        '<article class="oferta-ssr" data-oferta-ssr="true" aria-labelledby="ssr-oferta-titulo">',
+        '  <header class="oferta-ssr-header">',
+        '    <p class="oferta-ssr-kicker">Oferta pública</p>',
+        f'    <h1 id="ssr-oferta-titulo">{html.escape(cargo)}</h1>',
+    ]
+    if institucion:
+        partes.append(
+            f'    <p class="oferta-ssr-institucion">{html.escape(institucion)}</p>'
+        )
+    partes.append("  </header>")
+
+    meta_items: list[tuple[str, str]] = []
+    ubicacion = " · ".join(x for x in (region, ciudad) if x)
+    if ubicacion:
+        meta_items.append(("Ubicación", ubicacion))
+    if tipo:
+        meta_items.append(("Tipo de contrato", tipo.capitalize()))
+    if jornada:
+        meta_items.append(("Jornada", jornada))
+    if renta:
+        meta_items.append(("Renta bruta", renta))
+    if fecha_pub:
+        meta_items.append(("Publicación", fecha_pub))
+    if fecha_cie:
+        meta_items.append(("Cierre de postulaciones", fecha_cie))
+    if meta_items:
+        partes.append('  <dl class="oferta-ssr-meta">')
+        for label, value in meta_items:
+            partes.append(
+                f"    <dt>{html.escape(label)}</dt>"
+                f"<dd>{html.escape(value)}</dd>"
+            )
+        partes.append("  </dl>")
+
+    if descripcion_html:
+        partes.append('  <section class="oferta-ssr-descripcion">')
+        partes.append("    <h2>Descripción de la oferta</h2>")
+        partes.append(f"    {descripcion_html}")
+        partes.append("  </section>")
+
+    if url_oferta.startswith(("http://", "https://")):
+        partes.append(
+            f'  <p class="oferta-ssr-cta"><a href="{html.escape(url_oferta)}"'
+            ' rel="nofollow noopener" target="_blank">Ir a postular en el sitio oficial →</a></p>'
+        )
+    partes.append("</article>")
+    return "\n".join(partes)
 
 
 def build_offer_meta(oferta: dict[str, Any] | None, canonical_url: str) -> dict[str, str]:
@@ -1156,6 +1268,20 @@ def render_index_with_meta(
                 "</script>"
             )
             html_doc = html_doc.replace("</head>", f"{tag}\n</head>", 1)
+        # Contenido visible para crawlers. El placeholder está en
+        # web/index.html dentro de <main>; si no existe (fallback), se
+        # inyecta después del <main ...> opening tag como último recurso.
+        ssr_html = build_offer_ssr_html(oferta)
+        placeholder = "<!-- SSR_OFFER_SLOT_START --><!-- SSR_OFFER_SLOT_END -->"
+        if placeholder in html_doc:
+            html_doc = html_doc.replace(placeholder, ssr_html, 1)
+        else:
+            html_doc = re.sub(
+                r'(<main[^>]*id="contenido-principal"[^>]*>)',
+                rf"\1\n{ssr_html}",
+                html_doc,
+                count=1,
+            )
     return html_doc
 
 
