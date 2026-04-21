@@ -21,15 +21,22 @@ class ExtractorSelection:
     decision: Decision
     reason_code: ReasonCode | None
     reason_detail: str | None
+    extract_threshold_applied: float | None = None
+    manual_threshold_applied: float | None = None
 
 
 def select_extractor(profile: SourceProfile, *, availability: Availability, page_type: PageType, job_relevance: JobRelevance, validity_status: ValidityStatus, confidence: float) -> ExtractorSelection:
+    extract_threshold = 0.75
+    manual_threshold = 0.55
+
     if availability == Availability.JS_REQUIRED and profile.supports_playwright:
         return ExtractorSelection(
             recommended_extractor=ExtractorKind.SCRAPER_PLAYWRIGHT,
-            decision=Decision.EXTRACT if confidence >= 0.75 else Decision.MANUAL_REVIEW,
-            reason_code=None if confidence >= 0.75 else ReasonCode.MANUAL_REVIEW_REQUIRED,
-            reason_detail=None if confidence >= 0.75 else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            decision=Decision.EXTRACT if confidence >= extract_threshold else Decision.MANUAL_REVIEW,
+            reason_code=None if confidence >= extract_threshold else ReasonCode.MANUAL_REVIEW_REQUIRED,
+            reason_detail=None if confidence >= extract_threshold else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
     if availability != Availability.OK:
@@ -51,9 +58,11 @@ def select_extractor(profile: SourceProfile, *, availability: Availability, page
     if page_type == PageType.ATS_EXTERNAL or profile.extractor_hint == ExtractorKind.SCRAPER_EXTERNAL_ATS:
         return ExtractorSelection(
             recommended_extractor=ExtractorKind.SCRAPER_EXTERNAL_ATS,
-            decision=Decision.EXTRACT if confidence >= 0.75 else Decision.MANUAL_REVIEW,
-            reason_code=None if confidence >= 0.75 else ReasonCode.MANUAL_REVIEW_REQUIRED,
-            reason_detail=None if confidence >= 0.75 else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            decision=Decision.EXTRACT if confidence >= extract_threshold else Decision.MANUAL_REVIEW,
+            reason_code=None if confidence >= extract_threshold else ReasonCode.MANUAL_REVIEW_REQUIRED,
+            reason_detail=None if confidence >= extract_threshold else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
     if profile.name == "empleos_publicos":
@@ -79,9 +88,11 @@ def select_extractor(profile: SourceProfile, *, availability: Availability, page
             )
         return ExtractorSelection(
             recommended_extractor=extractor,
-            decision=Decision.EXTRACT if confidence >= 0.75 else Decision.MANUAL_REVIEW,
-            reason_code=None if confidence >= 0.75 else ReasonCode.MANUAL_REVIEW_REQUIRED,
-            reason_detail=None if confidence >= 0.75 else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            decision=Decision.EXTRACT if confidence >= extract_threshold else Decision.MANUAL_REVIEW,
+            reason_code=None if confidence >= extract_threshold else ReasonCode.MANUAL_REVIEW_REQUIRED,
+            reason_detail=None if confidence >= extract_threshold else reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
     if validity_status == ValidityStatus.EXPIRED_CONFIRMED:
@@ -92,28 +103,34 @@ def select_extractor(profile: SourceProfile, *, availability: Availability, page
             reason_detail=reason_detail(ReasonCode.ONLY_EXPIRED_CALLS),
         )
 
-    if page_type == PageType.LISTING_PAGE and confidence < 0.75:
+    if page_type == PageType.LISTING_PAGE and confidence < extract_threshold:
         return ExtractorSelection(
             recommended_extractor=profile.extractor_hint,
             decision=Decision.MANUAL_REVIEW,
             reason_code=ReasonCode.LISTING_WITHOUT_OFFER_DETAIL,
             reason_detail=reason_detail(ReasonCode.LISTING_WITHOUT_OFFER_DETAIL),
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
-    if confidence >= 0.75:
+    if confidence >= extract_threshold:
         return ExtractorSelection(
             recommended_extractor=profile.extractor_hint,
             decision=Decision.EXTRACT,
             reason_code=None,
             reason_detail=None,
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
-    if confidence >= 0.55:
+    if confidence >= manual_threshold:
         return ExtractorSelection(
             recommended_extractor=profile.extractor_hint,
             decision=Decision.MANUAL_REVIEW,
             reason_code=ReasonCode.MANUAL_REVIEW_REQUIRED,
             reason_detail=reason_detail(ReasonCode.MANUAL_REVIEW_REQUIRED),
+            extract_threshold_applied=extract_threshold,
+            manual_threshold_applied=manual_threshold,
         )
 
     return ExtractorSelection(
@@ -121,4 +138,6 @@ def select_extractor(profile: SourceProfile, *, availability: Availability, page
         decision=Decision.SKIP,
         reason_code=ReasonCode.NO_MATCHING_EXTRACTOR,
         reason_detail=reason_detail(ReasonCode.NO_MATCHING_EXTRACTOR),
+        extract_threshold_applied=extract_threshold,
+        manual_threshold_applied=manual_threshold,
     )
