@@ -70,6 +70,16 @@ def test_runtime_hints_match_ats_before_override():
     assert match.source_requires_override is False
 
 
+def test_domain_match_has_priority_over_override():
+    match = classify_source_profile(
+        {"url_empleo": "https://portal.trabajando.cl/ofertas", "plataforma_empleo": "WordPress"},
+        runtime_hints=(),
+    )
+    assert match.profile.name == "ats_trabajando"
+    assert match.matched_by == "domain"
+    assert match.source_requires_override is False
+
+
 def test_override_only_after_auto_detection_fails_and_reports_severity():
     match = classify_source_profile(
         {"url_empleo": "https://example.gob.cl/empleos", "plataforma_empleo": "Trabajando.cl"},

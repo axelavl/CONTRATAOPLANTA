@@ -100,6 +100,7 @@ def _extract_pdf_links(soup: BeautifulSoup, source_url: str) -> list[str]:
 def _runtime_hints(page: FetchedPage, soup: BeautifulSoup) -> tuple[str, ...]:
     hints: set[str] = set()
     blobs: list[str] = [page.final_url.lower()]
+    blobs.extend(f"{k}:{v}".lower() for k, v in (page.headers or {}).items())
     for script in soup.find_all("script", src=True):
         blobs.append(str(script.get("src") or "").lower())
     for meta in soup.find_all("meta"):
@@ -115,7 +116,7 @@ def _runtime_hints(page: FetchedPage, soup: BeautifulSoup) -> tuple[str, ...]:
         hints.add("ats_trabajando")
     if any("hiringroom" in blob for blob in blobs):
         hints.add("ats_hiringroom")
-    if any("buk.cl" in blob or "/buk/" in blob for blob in blobs):
+    if any("buk.cl" in blob for blob in blobs):
         hints.add("ats_buk")
     return tuple(sorted(hints))
 
@@ -181,6 +182,19 @@ class SourceEvaluator:
         profile_match = classify_source_profile(source)
         profile = profile_match.profile
         if not source_url:
+            signals_json = {
+                "profile": profile.name,
+                "profile_matched_by": profile_match.matched_by,
+                "runtime_hints": [],
+            }
+            if profile_match.source_requires_override:
+                signals_json.update(
+                    {
+                        "source_requires_override": True,
+                        "override_backlog_severity": profile_match.backlog_severity,
+                        "override_evidence": profile_match.evidence,
+                    }
+                )
             return EvaluationResult(
                 source_url="",
                 availability=Availability.EMPTY_RESPONSE,
@@ -202,7 +216,7 @@ class SourceEvaluator:
                 reason_detail="La fuente no trae url_empleo ni sitio_web.",
                 confidence=0.0,
                 retry_policy=profile.retry_policy,
-                signals_json={"profile": profile.name},
+                signals_json=signals_json,
                 evaluated_at=datetime.now(),
                 profile_name=profile.name,
             )
@@ -229,6 +243,22 @@ class SourceEvaluator:
         )
         availability = _availability_from_fetch(page)
         if availability != Availability.OK:
+            signals_json = {
+                "profile": profile.name,
+                "profile_matched_by": profile_match.matched_by,
+                "runtime_hints": [],
+                "error_type": page.error_type,
+                "error_detail": page.error_detail,
+                "content_type": page.content_type,
+            }
+            if profile_match.source_requires_override:
+                signals_json.update(
+                    {
+                        "source_requires_override": True,
+                        "override_backlog_severity": profile_match.backlog_severity,
+                        "override_evidence": profile_match.evidence,
+                    }
+                )
             selection = select_extractor(
                 profile,
                 availability=availability,
@@ -265,12 +295,7 @@ class SourceEvaluator:
                 reason_detail=selection.reason_detail,
                 confidence=0.0,
                 retry_policy=profile.retry_policy,
-                signals_json={
-                    "profile": profile.name,
-                    "error_type": page.error_type,
-                    "error_detail": page.error_detail,
-                    "content_type": page.content_type,
-                },
+                signals_json=signals_json,
                 evaluated_at=datetime.now(),
                 profile_name=profile.name,
             )
