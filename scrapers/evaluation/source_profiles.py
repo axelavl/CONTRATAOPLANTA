@@ -32,6 +32,8 @@ PROFILES: tuple[SourceProfile, ...] = (
         page_type_priors={PageType.DETAIL_PAGE: 0.8, PageType.DOCUMENT_PAGE: 0.95},
         retry_policy=RetryPolicy.HIGH,
         extractor_hint=ExtractorKind.SCRAPER_PDF_JOBS,
+        extract_threshold=0.7,
+        manual_threshold=0.5,
         notes="Usa descriptor y perfil PDF como fuente de verdad.",
     ),
     SourceProfile(
@@ -47,6 +49,8 @@ PROFILES: tuple[SourceProfile, ...] = (
         page_type_priors={PageType.DETAIL_PAGE: 0.75, PageType.DOCUMENT_PAGE: 0.95},
         retry_policy=RetryPolicy.HIGH,
         extractor_hint=ExtractorKind.SCRAPER_PDF_JOBS,
+        extract_threshold=0.7,
+        manual_threshold=0.5,
         notes="PDFs de perfil y bases pesan mas que el HTML.",
     ),
     SourceProfile(
@@ -57,6 +61,8 @@ PROFILES: tuple[SourceProfile, ...] = (
         page_type_priors={PageType.DETAIL_PAGE: 0.7},
         retry_policy=RetryPolicy.HIGH,
         extractor_hint=ExtractorKind.SCRAPER_CUSTOM_DETAIL,
+        extract_threshold=0.72,
+        manual_threshold=0.52,
         notes="Portales policiales con warmup y senales de WAF.",
     ),
     SourceProfile(
@@ -67,6 +73,8 @@ PROFILES: tuple[SourceProfile, ...] = (
         page_type_priors={PageType.LISTING_PAGE: 0.7, PageType.DETAIL_PAGE: 0.75},
         retry_policy=RetryPolicy.MEDIUM,
         extractor_hint=ExtractorKind.SCRAPER_CUSTOM_DETAIL,
+        extract_threshold=0.72,
+        manual_threshold=0.52,
         notes="Portales militares con rutas candidatas especificas y warmup.",
     ),
     SourceProfile(
@@ -127,6 +135,8 @@ PROFILES: tuple[SourceProfile, ...] = (
         retry_policy=RetryPolicy.MEDIUM,
         max_candidate_urls=4,
         extractor_hint=ExtractorKind.SCRAPER_GENERIC_FALLBACK,
+        extract_threshold=0.78,
+        manual_threshold=0.58,
         notes="Fallback defensivo para sitios propios y estructuras no clasificadas.",
     ),
 )

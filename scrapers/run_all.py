@@ -402,12 +402,19 @@ async def _evaluate_sources(
                     fuente_id = _resolve_fuente_id(source, bypass, fuentes_index)
                     return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=bypass)
                 historical_noise_ratio = 0.0
+                historical_source_metrics: dict[str, float | int] | None = None
                 try:
                     with conexion() as conn:
                         historical_noise_ratio = audit_store.get_institution_noise_ratio(conn, source.get("id"))
+                        historical_source_metrics = audit_store.get_source_quality_metrics(conn, source_id)
                 except Exception:
                     historical_noise_ratio = 0.0
-                evaluation = await evaluator.evaluate(source, historical_noise_ratio=historical_noise_ratio)
+                    historical_source_metrics = None
+                evaluation = await evaluator.evaluate(
+                    source,
+                    historical_noise_ratio=historical_noise_ratio,
+                    historical_source_metrics=historical_source_metrics,
+                )
                 fuente_id = _resolve_fuente_id(source, evaluation, fuentes_index)
                 return RuntimeSource(institucion=source, fuente_id=fuente_id, evaluation=evaluation)
 

@@ -116,8 +116,62 @@ def test_generic_profile_keeps_global_default_thresholds():
     )
     assert profile.name == "generic_site"
     assert selection.decision == Decision.MANUAL_REVIEW
+    assert selection.extract_threshold_applied == 0.78
+    assert selection.manual_threshold_applied == 0.58
+    assert selection.threshold_validation["profile_requires_historical_validation"] is True
+    assert selection.threshold_validation["historical_validation_applied"] is False
+
+
+def test_generic_profile_relaxes_thresholds_when_historical_precision_is_high():
+    profile = match_source_profile({"url_empleo": "https://www.servicio-no-clasificado.gob.cl/empleos"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.GENERAL_PAGE,
+        job_relevance=JobRelevance.UNCERTAIN,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        confidence=0.75,
+        source_quality_metrics={"sample_size": 30, "publish_ratio": 0.9, "flagged_ratio": 0.1},
+    )
+    assert selection.decision == Decision.EXTRACT
+    assert selection.extract_threshold_applied == 0.73
+    assert selection.manual_threshold_applied == 0.53
+    assert selection.threshold_validation["historical_validation_applied"] is True
+    assert selection.threshold_validation["historical_quality_band"] == "high_precision"
+
+
+def test_pdf_first_profile_uses_explicit_thresholds_with_history():
+    profile = match_source_profile({"id": 161, "url_empleo": "https://postulaciones.carabineros.cl/"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.DETAIL_PAGE,
+        job_relevance=JobRelevance.JOB_LIKE,
+        validity_status=ValidityStatus.OPEN_CONFIRMED,
+        confidence=0.67,
+        source_quality_metrics={"sample_size": 40, "publish_ratio": 0.4, "flagged_ratio": 0.6},
+    )
+    assert selection.decision == Decision.MANUAL_REVIEW
     assert selection.extract_threshold_applied == 0.75
     assert selection.manual_threshold_applied == 0.55
+    assert selection.threshold_validation["historical_quality_band"] == "high_noise"
+
+
+def test_waf_profile_has_explicit_thresholds():
+    profile = match_source_profile({"url_empleo": "https://ingreso.ejercito.cl/postulaciones"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.DETAIL_PAGE,
+        job_relevance=JobRelevance.UNCERTAIN,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        confidence=0.7,
+    )
+    assert profile.name == "ffaa_waf"
+    assert selection.decision == Decision.MANUAL_REVIEW
+    assert selection.extract_threshold_applied == 0.72
+    assert selection.manual_threshold_applied == 0.52
+    assert selection.threshold_validation["profile_requires_historical_validation"] is True
 
 
 def test_runtime_hints_match_ats_before_override():
