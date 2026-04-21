@@ -9,7 +9,7 @@ from scrapers.evaluation.models import (
     PageType,
     ValidityStatus,
 )
-from scrapers.evaluation.source_profiles import match_source_profile
+from scrapers.evaluation.source_profiles import classify_source_profile, match_source_profile
 
 
 def test_ats_profiles_route_trabajando_hiringroom_buk():
@@ -116,5 +116,107 @@ def test_generic_profile_keeps_global_default_thresholds():
     )
     assert profile.name == "generic_site"
     assert selection.decision == Decision.MANUAL_REVIEW
+    assert selection.extract_threshold_applied == 0.78
+    assert selection.manual_threshold_applied == 0.58
+    assert selection.threshold_validation["profile_requires_historical_validation"] is True
+    assert selection.threshold_validation["historical_validation_applied"] is False
+
+
+def test_generic_profile_relaxes_thresholds_when_historical_precision_is_high():
+    profile = match_source_profile({"url_empleo": "https://www.servicio-no-clasificado.gob.cl/empleos"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.GENERAL_PAGE,
+        job_relevance=JobRelevance.UNCERTAIN,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        confidence=0.75,
+        source_quality_metrics={"sample_size": 30, "historical_precision": 0.9, "historical_recall": 0.82},
+    )
+    assert selection.decision == Decision.EXTRACT
+    assert selection.extract_threshold_applied == 0.73
+    assert selection.manual_threshold_applied == 0.53
+    assert selection.threshold_validation["historical_validation_applied"] is True
+    assert selection.threshold_validation["historical_quality_band"] == "high_precision_recall"
+
+
+def test_pdf_first_profile_uses_explicit_thresholds_with_history():
+    profile = match_source_profile({"id": 161, "url_empleo": "https://postulaciones.carabineros.cl/"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.DETAIL_PAGE,
+        job_relevance=JobRelevance.JOB_LIKE,
+        validity_status=ValidityStatus.OPEN_CONFIRMED,
+        confidence=0.67,
+        source_quality_metrics={"sample_size": 40, "historical_precision": 0.4, "historical_recall": 0.45},
+    )
+    assert selection.decision == Decision.MANUAL_REVIEW
     assert selection.extract_threshold_applied == 0.75
     assert selection.manual_threshold_applied == 0.55
+    assert selection.threshold_validation["historical_quality_band"] == "low_precision_or_recall"
+
+
+def test_external_ats_family_uses_precision_recall_thresholds():
+    profile = match_source_profile({"url_empleo": "https://empresa.hiringroom.com/jobs", "plataforma_empleo": "HiringRoom"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.ATS_EXTERNAL,
+        job_relevance=JobRelevance.UNCERTAIN,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        confidence=0.63,
+        source_quality_metrics={"sample_size": 20, "historical_precision": 0.88, "historical_recall": 0.8},
+    )
+    assert selection.decision == Decision.EXTRACT
+    assert selection.extract_threshold_applied == 0.62
+    assert selection.manual_threshold_applied == 0.42
+    assert selection.threshold_validation["threshold_family"] == "external_ats"
+
+
+def test_waf_profile_has_explicit_thresholds():
+    profile = match_source_profile({"url_empleo": "https://ingreso.ejercito.cl/postulaciones"})
+    selection = select_extractor(
+        profile,
+        availability=Availability.OK,
+        page_type=PageType.DETAIL_PAGE,
+        job_relevance=JobRelevance.UNCERTAIN,
+        validity_status=ValidityStatus.UNKNOWN_VALIDITY,
+        confidence=0.7,
+    )
+    assert profile.name == "ffaa_waf"
+    assert selection.decision == Decision.MANUAL_REVIEW
+    assert selection.extract_threshold_applied == 0.72
+    assert selection.manual_threshold_applied == 0.52
+    assert selection.threshold_validation["profile_requires_historical_validation"] is True
+
+
+def test_runtime_hints_match_ats_before_override():
+    match = classify_source_profile(
+        {"url_empleo": "https://example.gob.cl/empleos", "plataforma_empleo": "portal custom"},
+        runtime_hints=("ats_hiringroom",),
+    )
+    assert match.profile.name == "ats_hiringroom"
+    assert match.matched_by == "runtime"
+    assert match.source_requires_override is False
+
+
+def test_domain_match_has_priority_over_override():
+    match = classify_source_profile(
+        {"url_empleo": "https://portal.trabajando.cl/ofertas", "plataforma_empleo": "WordPress"},
+        runtime_hints=(),
+    )
+    assert match.profile.name == "ats_trabajando"
+    assert match.matched_by == "domain"
+    assert match.source_requires_override is False
+
+
+def test_override_only_after_auto_detection_fails_and_reports_severity():
+    match = classify_source_profile(
+        {"url_empleo": "https://example.gob.cl/empleos", "plataforma_empleo": "Trabajando.cl"},
+        runtime_hints=(),
+    )
+    assert match.profile.name == "ats_trabajando"
+    assert match.matched_by == "override"
+    assert match.source_requires_override is True
+    assert match.backlog_severity == "high"

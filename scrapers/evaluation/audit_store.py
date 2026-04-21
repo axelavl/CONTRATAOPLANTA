@@ -161,6 +161,62 @@ class AuditStore:
         except Exception:
             return 0.0
 
+    def get_source_quality_metrics(self, conn, fuente_id: int | None) -> dict[str, float | int]:
+        if not fuente_id:
+            return {
+                "sample_size": 0,
+                "publish_ratio": 0.0,
+                "flagged_ratio": 0.0,
+                "historical_precision": 0.0,
+                "historical_recall": 0.0,
+            }
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*)::int AS sample_size,
+                        COALESCE(
+                            SUM(CASE WHEN decision = 'publish' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0),
+                            0
+                        ) AS publish_ratio,
+                        COALESCE(
+                            SUM(CASE WHEN decision IN ('reject', 'review', 'manual_review') THEN 1 ELSE 0 END)::float
+                            / NULLIF(COUNT(*), 0),
+                            0
+                        ) AS flagged_ratio
+                    FROM offer_quality_events
+                    WHERE fuente_id = %s
+                    """,
+                    (fuente_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        "sample_size": 0,
+                        "publish_ratio": 0.0,
+                        "flagged_ratio": 0.0,
+                        "historical_precision": 0.0,
+                        "historical_recall": 0.0,
+                    }
+                publish_ratio = float(row[1] or 0.0)
+                flagged_ratio = float(row[2] or 0.0)
+                return {
+                    "sample_size": int(row[0] or 0),
+                    "publish_ratio": publish_ratio,
+                    "flagged_ratio": flagged_ratio,
+                    "historical_precision": publish_ratio,
+                    "historical_recall": max(0.0, min(1.0, round(1.0 - flagged_ratio, 4))),
+                }
+        except Exception:
+            return {
+                "sample_size": 0,
+                "publish_ratio": 0.0,
+                "flagged_ratio": 0.0,
+                "historical_precision": 0.0,
+                "historical_recall": 0.0,
+            }
+
     def get_generic_site_last_success_path(self, conn, institucion_id: int | None) -> str | None:
         if not institucion_id:
             return None
