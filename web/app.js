@@ -1859,39 +1859,31 @@ function _toggleSection(sectionId, visible) {
   if (el) el.hidden = !visible;
 }
 
-function _buildDecisionPoints(oferta, estadoPlazo) {
-  const points = [];
-  const cargo = normalizarTituloOferta(oferta?.cargo || '').trim();
-  const inst = _aplicarAcronimosForzados((oferta?.institucion || '').trim());
-  const renta = formatRenta(oferta?.renta_bruta_min, oferta?.renta_bruta_max, oferta?.grado_eus);
-  const region = nombreRegionCompleto(oferta?.region);
-  const ciudad = ciudadValida(oferta?.ciudad, oferta?.institucion);
-  const ubicacion = [region, ciudad].filter(Boolean).join(' · ');
-  if (cargo) points.push(`Cargo: ${cargo}`);
-  if (inst) points.push(`Institución: ${inst}`);
-  if (estadoPlazo?.label) points.push(`Estado: ${estadoPlazo.label}`);
-  if (renta && !_isWeakSummaryValue(renta)) points.push(`Renta: ${renta}`);
-  if (ubicacion) points.push(`Ubicación: ${ubicacion}`);
-  if (oferta?.fecha_cierre) points.push(`Cierre: ${formatFecha(oferta.fecha_cierre)}`);
-  return points.slice(0, 6);
-}
+// _buildDecisionPoints fue eliminado: todo lo que devolvía ya está visible
+// arriba (cargo/institución en el header, estado/cierre en plazo-alert,
+// renta/ubicación/tipo/jornada en el grid). El bloque `modal-key-points`
+// también fue retirado del DOM para evitar duplicación.
 
 function _collectDataWarnings(oferta) {
+  const UI = window.UI_STRINGS || {};
   const warnings = [];
   const inst = String(oferta?.institucion || '').trim();
   const cargo = String(oferta?.cargo || '').trim();
   const descripcion = String(oferta?.descripcion || '').toLowerCase();
   if (!inst || inst.length < 4 || /instituci[oó]n p[úu]blica|municipalidad/i.test(inst)) {
-    warnings.push('Institución detectada automáticamente; revisa las bases oficiales antes de postular.');
+    warnings.push(UI.NOTE_INSTITUCION_AUTODETECTADA
+      || 'Institución detectada automáticamente; revisa las bases oficiales antes de postular.');
   }
   if (cargo && descripcion && inst && !descripcion.includes(inst.toLowerCase().slice(0, 8))) {
     warnings.push('El contenido no menciona claramente la institución; valida la fuente oficial.');
   }
   if (!oferta?.region && !oferta?.ciudad) {
-    warnings.push('La ubicación no fue informada con claridad en el aviso original.');
+    warnings.push(UI.NOTE_UBICACION_FALTANTE
+      || 'La ubicación no fue informada con claridad en el aviso original.');
   }
   if (!oferta?.fecha_cierre) {
-    warnings.push('No hay fecha de cierre explícita; confirma vigencia en el portal oficial.');
+    warnings.push(UI.NOTE_SIN_FECHA_CIERRE
+      || 'No hay fecha de cierre explícita; confirma vigencia en el portal oficial.');
   }
   return warnings;
 }
@@ -1993,13 +1985,11 @@ async function abrirModal(ofertaId) {
   document.getElementById('modal-cargo').textContent = '';
   document.getElementById('modal-badges').innerHTML = '';
   document.getElementById('modal-fecha-publicacion').textContent = '—';
-  document.getElementById('modal-fecha-cierre').textContent = '—';
   document.getElementById('modal-ubicacion').textContent = '—';
   document.getElementById('modal-tipo-contrato').textContent = '—';
   document.getElementById('modal-jornada').textContent = '—';
   document.getElementById('modal-renta').textContent = '—';
   document.getElementById('summary-item-publicacion').hidden = false;
-  document.getElementById('summary-item-cierre').hidden = false;
   document.getElementById('summary-item-ubicacion').hidden = false;
   document.getElementById('summary-item-tipo').hidden = false;
   document.getElementById('summary-item-jornada').hidden = false;
@@ -2007,7 +1997,6 @@ async function abrirModal(ofertaId) {
   const summaryNote = document.getElementById('modal-summary-note');
   summaryNote.hidden = true;
   summaryNote.textContent = '';
-  document.getElementById('modal-key-points').innerHTML = '';
   document.getElementById('modal-descripcion').innerHTML = '';
   document.getElementById('modal-requisitos').innerHTML = '';
   _renderListInto('modal-req-obligatorios', []);
@@ -2078,33 +2067,25 @@ async function abrirModal(ofertaId) {
     // Resumen ejecutivo (prioriza datos útiles y oculta ruido)
     const jornadaTexto = jornadaValida(o.jornada);
     const ubicacion = [regionCompleta, ciudad].filter(Boolean).join(' · ');
-    const fechaCierreLabel = o.fecha_cierre ? formatFecha(o.fecha_cierre) : 'No informada';
     const fechaPublicacionLabel = o.fecha_publicacion ? formatFecha(o.fecha_publicacion) : 'No informada';
+    // La fecha de cierre no entra al grid: ya está en `.modal-plazo-alert`.
+    // 5 campos posibles en el resumen (publicación, ubicación, tipo, jornada, renta).
     const visibleCount = [
       _setSummaryField('summary-item-publicacion', fechaPublicacionLabel),
-      _setSummaryField('summary-item-cierre', fechaCierreLabel),
       _setSummaryField('summary-item-ubicacion', ubicacion || ''),
       _setSummaryField('summary-item-tipo', tipoLabel || ''),
       _setSummaryField('summary-item-jornada', jornadaTexto || ''),
       _setSummaryField('summary-item-renta', renta || ''),
     ].filter(Boolean).length;
     // Publicamos el conteo visible para que el CSS elija la mejor grilla
-    // (1→1 col, 2→2 col, 3/6→3 col, 4→2 col, 5→3 col). Evita huérfanos.
+    // (1→1 col, 2→2 col, 3–5→2-3 col). Evita huérfanos.
     const summaryGrid = document.getElementById('modal-info-grid');
     if (summaryGrid) summaryGrid.dataset.count = String(visibleCount);
-    if (visibleCount < 3) {
-      summaryNote.textContent = 'Algunos datos no fueron informados claramente por la fuente original. Revisa las bases para validar el detalle completo.';
+    if (visibleCount < 2) {
+      summaryNote.textContent = window.UI_STRINGS?.NOTE_DATOS_PARCIALES
+        || 'Algunos datos no fueron informados claramente por la fuente. Revisa las bases para el detalle completo.';
       summaryNote.hidden = false;
     }
-
-    // Decision points — resumen de datos clave accionables antes del
-    // detalle completo. Renderizado por el helper compartido que además
-    // aplica el emptyText si no hay señales suficientes.
-    const decisionPoints = _buildDecisionPoints(o, detalle);
-    _renderListInto('modal-key-points', decisionPoints, {
-      max: 6,
-      emptyText: 'Revisa las bases oficiales para confirmar los datos clave.'
-    });
 
     // Descripción / funciones — formato enriquecido.
     // Umbral bajo para que ambas secciones (Requisitos + Descripción)
@@ -2155,22 +2136,25 @@ async function abrirModal(ofertaId) {
       ? window.richText.buildSemanticSections({ descripcion: desc, requisitos: reqTexto })
       : null;
 
+    // Render de secciones semánticas. Regla: una sección sin contenido
+    // real se oculta COMPLETA (incluyendo su título). No se muestra
+    // fallback por sección — eso generaba ruido y duplicación con el
+    // mensaje global. El único fallback queda como NOTE_DATOS_PARCIALES
+    // arriba y como mensaje de advertencia cuando nada extrae.
     if (semantic) {
-      _renderListInto('modal-funciones-list', semantic.funciones, {
-        max: 8,
-        emptyText: 'No fue posible extraer funciones claras desde el texto original.'
-      });
-      _renderListInto('modal-condiciones-list', semantic.condiciones, {
-        max: 8,
-        emptyText: 'Revisa bases para jornada, modalidad y condiciones contractuales.'
-      });
-      _renderListInto('modal-req-obligatorios', semantic.requisitos.obligatorios, { max: 6 });
-      _renderListInto('modal-req-deseables', semantic.requisitos.deseables, { max: 6 });
-      _renderListInto('modal-req-experiencia', semantic.requisitos.experiencia, { max: 6 });
-      _renderListInto('modal-req-formacion', semantic.requisitos.formacion, { max: 6 });
-      _renderListInto('modal-req-especialidades', semantic.requisitos.especialidades, { max: 6 });
-      _renderListInto('modal-req-competencias', semantic.requisitos.competencias, { max: 6 });
-      _renderListInto('modal-req-documentos', semantic.requisitos.documentos, { max: 6 });
+      const countFunc = _renderListInto('modal-funciones-list', semantic.funciones, { max: 8 });
+      _toggleSection('modal-funciones-wrap', countFunc > 0);
+      const countCond = _renderListInto('modal-condiciones-list', semantic.condiciones, { max: 8 });
+      _toggleSection('modal-condiciones-wrap', countCond > 0);
+      const countReq = [
+        _renderListInto('modal-req-obligatorios', semantic.requisitos.obligatorios, { max: 6 }),
+        _renderListInto('modal-req-deseables', semantic.requisitos.deseables, { max: 6 }),
+        _renderListInto('modal-req-experiencia', semantic.requisitos.experiencia, { max: 6 }),
+        _renderListInto('modal-req-formacion', semantic.requisitos.formacion, { max: 6 }),
+        _renderListInto('modal-req-especialidades', semantic.requisitos.especialidades, { max: 6 }),
+        _renderListInto('modal-req-competencias', semantic.requisitos.competencias, { max: 6 }),
+        _renderListInto('modal-req-documentos', semantic.requisitos.documentos, { max: 6 }),
+      ].reduce((a, b) => a + b, 0);
       _toggleSection('sec-req-obligatorios', semantic.requisitos.obligatorios.length > 0);
       _toggleSection('sec-req-deseables', semantic.requisitos.deseables.length > 0);
       _toggleSection('sec-req-experiencia', semantic.requisitos.experiencia.length > 0);
@@ -2178,6 +2162,7 @@ async function abrirModal(ofertaId) {
       _toggleSection('sec-req-especialidades', semantic.requisitos.especialidades.length > 0);
       _toggleSection('sec-req-competencias', semantic.requisitos.competencias.length > 0);
       _toggleSection('sec-req-documentos', semantic.requisitos.documentos.length > 0);
+      _toggleSection('modal-requisitos-wrap', countReq > 0);
       _toggleSection('modal-objetivo-wrap', !!semantic.objetivo);
       if (semantic.objetivo) {
         document.getElementById('modal-objetivo').textContent = semantic.objetivo;
@@ -2185,8 +2170,11 @@ async function abrirModal(ofertaId) {
       _toggleSection('modal-postulacion-wrap', semantic.postulacion.length > 0);
       _renderListInto('modal-postulacion-list', semantic.postulacion, { max: 5 });
     } else {
-      _toggleSection('sec-req-obligatorios', true);
-      _renderListInto('modal-req-obligatorios', ['Revisa el texto completo del aviso para validar requisitos.'], { max: 1 });
+      _toggleSection('modal-requisitos-wrap', false);
+      _toggleSection('modal-funciones-wrap', false);
+      _toggleSection('modal-condiciones-wrap', false);
+      _toggleSection('modal-objetivo-wrap', false);
+      _toggleSection('modal-postulacion-wrap', false);
     }
 
     const warnings = _collectDataWarnings(o);
@@ -2202,16 +2190,17 @@ async function abrirModal(ofertaId) {
                   : (o.url_bases_valida === true)  ? true
                   : esUrlValida(o.url_bases);
     const urlPostular = ofertaOk ? o.url_oferta : (basesOk ? o.url_bases : null);
+    const UI = window.UI_STRINGS || {};
     if (urlPostular) {
       btnPostular.disabled = false;
-      btnPostular.textContent = 'Ir al portal de postulación →';
+      btnPostular.textContent = UI.CTA_POSTULAR || 'Ir al portal de postulación →';
       btnPostular.onclick = () => {
         registrarClicPostular(o);
         window.open(urlPostular, '_blank', 'noopener,noreferrer');
       };
     } else {
       btnPostular.disabled = true;
-      btnPostular.textContent = 'Postulación no disponible';
+      btnPostular.textContent = UI.CTA_POSTULAR_OFF || 'Postulación no disponible';
       btnPostular.onclick = null;
     }
 
@@ -2219,7 +2208,7 @@ async function abrirModal(ofertaId) {
     const btnBases = document.getElementById('modal-btn-bases');
     if (o.url_bases && o.url_bases !== o.url_oferta && basesOk) {
       btnBases.style.display = 'inline-flex';
-      btnBases.textContent = '📄 Ver bases del concurso';
+      btnBases.textContent = UI.CTA_BASES || 'Ver bases oficiales';
       btnBases.onclick = () => abrirVisorBases(o);
     } else {
       btnBases.style.display = 'none';
@@ -2229,8 +2218,11 @@ async function abrirModal(ofertaId) {
     // Botón favorito
     const favs = JSON.parse(localStorage.getItem('fav_contrataoplanta') || '[]');
     const btnFav = document.getElementById('modal-btn-favorito');
-    btnFav.textContent = favs.some(f => f.id === o.id) ? '♥ Guardado' : '♡ Guardar';
-    btnFav.classList.toggle('btn-modal-sec--activo', favs.some(f => f.id === o.id));
+    const esFavoritaOferta = favs.some(f => f.id === o.id);
+    btnFav.textContent = esFavoritaOferta
+      ? `♥ ${UI.CTA_GUARDADA || 'Guardada'}`
+      : `♡ ${UI.CTA_GUARDAR || 'Guardar'}`;
+    btnFav.classList.toggle('btn-modal-sec--activo', esFavoritaOferta);
     btnFav.onclick = () => toggleFavorito(o);
 
     // Barra de compartir (RRSS + copiar enlace)
