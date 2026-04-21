@@ -87,27 +87,20 @@ def _has_jobposting_jsonld(soup: BeautifulSoup) -> bool:
     return False
 
 
-def _extract_pdf_links(soup: BeautifulSoup, source_url: str) -> list[str]:
+def _extract_pdf_attachment_context(soup: BeautifulSoup, source_url: str, body_text: str) -> tuple[list[str], str]:
     links: list[str] = []
-    for anchor in soup.find_all("a", href=True):
-        href = anchor["href"]
-        if href.lower().endswith(".pdf"):
-            links.append(urljoin(source_url, href))
-    return links
-
-
-def _expanded_text_with_attachments(soup: BeautifulSoup, body_text: str) -> str:
     attachment_fragments: list[str] = []
     for anchor in soup.find_all("a", href=True):
         href = anchor["href"]
         if href.lower().endswith(".pdf"):
+            links.append(urljoin(source_url, href))
             anchor_text = anchor.get_text(" ", strip=True)
             fragment = f"{anchor_text} {href}".strip()
             if fragment:
                 attachment_fragments.append(fragment)
     if not attachment_fragments:
-        return body_text
-    return f"{body_text} {' '.join(attachment_fragments)}".strip()
+        return links, body_text
+    return links, f"{body_text} {' '.join(attachment_fragments)}".strip()
 
 
 def _has_pdf_bases_or_profile(pdf_links: list[str], expanded_text: str) -> bool:
@@ -274,8 +267,7 @@ class SourceEvaluator:
         soup = BeautifulSoup(page.body, "html.parser")
         page_type, cms = _infer_page_type(page=page, soup=soup, profile=profile)
         body_text = soup.get_text(" ", strip=True)
-        expanded_text = _expanded_text_with_attachments(soup, body_text)
-        pdf_links = _extract_pdf_links(soup, page.final_url)
+        pdf_links, expanded_text = _extract_pdf_attachment_context(soup, page.final_url, body_text)
         has_pdf_bases_or_profile = _has_pdf_bases_or_profile(pdf_links, expanded_text)
         title = soup.title.get_text(" ", strip=True) if soup.title else None
         dates = extract_dates(html=page.body, text=expanded_text, reference_date=self.reference_date)
