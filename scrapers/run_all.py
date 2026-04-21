@@ -47,24 +47,16 @@ from scrapers.base import (
 )
 from scrapers.frequency_policy import should_evaluate_now
 from scrapers.empleos_publicos import EmpleosPublicosScraper
+from scrapers.runtime_inventory import build_runtime_scraper
 from scrapers.evaluation.audit_store import AuditStore
 from scrapers.evaluation.catalog_loader import CatalogLoader
 from scrapers.evaluation.models import (
     Availability, Decision, ExtractorKind,
-    JobRelevance, OpenCallsStatus, PageType,
-    RetryPolicy, ValidityStatus, EvaluationResult,
+    JobRelevance, OpenCallsStatus, PageType, EvaluationResult,
+    RetryPolicy, ValidityStatus,
 )
 from scrapers.evaluation.source_evaluator import SourceEvaluator
 from scrapers.source_status import ScraperKind, classify_source
-from scrapers.plataformas.buk import BukScraper
-from scrapers.plataformas.carabineros import CarabinerosScraper
-from scrapers.plataformas.ffaa import FfaaScraper
-from scrapers.plataformas.generic_site import GenericSiteScraper
-from scrapers.plataformas.hiringroom import HiringRoomScraper
-from scrapers.plataformas.pdi import PdiScraper
-from scrapers.plataformas.playwright_scraper import PlaywrightScraper
-from scrapers.plataformas.trabajando_cl import TrabajandoCLScraper
-from scrapers.plataformas.wordpress import WordPressScraper
 
 
 log = setup_logging("run_all")
@@ -436,66 +428,9 @@ def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
                 empleos_publicos_agregado = True
             continue
 
-        if evaluation.recommended_extractor in {
-            ExtractorKind.SCRAPER_WORDPRESS_JOBS,
-            ExtractorKind.SCRAPER_WORDPRESS_NEWS_FILTER,
-        }:
-            url_base = (
-                str(item.institucion.get("url_empleo") or "").strip()
-                or str(item.institucion.get("sitio_web") or "").strip()
-            )
-            scrapers.append(
-                WordPressScraper(
-                    fuente_id=item.fuente_id,
-                    nombre_fuente=str(item.institucion.get("nombre") or item.institucion.get("sigla") or f"wp-{item.institucion.get('id')}"),
-                    url_base=url_base,
-                    sector=item.institucion.get("sector"),
-                    region=item.institucion.get("region"),
-                )
-            )
-            continue
-
-        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_EXTERNAL_ATS:
-            profile_name = item.evaluation.profile_name or ""
-            if profile_name == "ats_trabajando":
-                scrapers.append(TrabajandoCLScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            elif profile_name == "ats_hiringroom":
-                scrapers.append(HiringRoomScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            elif profile_name == "ats_buk":
-                scrapers.append(BukScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            else:
-                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            continue
-
-        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PDF_JOBS:
-            inst_id = item.institucion.get("id")
-            if inst_id == 161:
-                scrapers.append(CarabinerosScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            elif inst_id == 162:
-                scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            else:
-                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            continue
-
-        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_CUSTOM_DETAIL:
-            profile_name = item.evaluation.profile_name or ""
-            if profile_name == "ffaa_waf" or item.institucion.get("id") in {157, 158}:
-                scrapers.append(FfaaScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            elif item.institucion.get("id") == 161:
-                scrapers.append(CarabinerosScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            elif item.institucion.get("id") == 162:
-                scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            else:
-                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            continue
-
-        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PLAYWRIGHT:
-            scrapers.append(PlaywrightScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            continue
-
-        if evaluation.recommended_extractor == ExtractorKind.SCRAPER_GENERIC_FALLBACK:
-            scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
-            continue
+        runtime_scraper = build_runtime_scraper(item)
+        if runtime_scraper is not None:
+            scrapers.append(runtime_scraper)
     return scrapers
 
 
