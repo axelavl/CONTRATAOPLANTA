@@ -68,6 +68,7 @@
 </script>
 <link rel="stylesheet" href="styles/index.css">
 <link rel="stylesheet" href="styles/redesign-overrides.css">
+<script defer src="ui-strings.js"></script>
 <script defer src="shared-shell.js"></script>
 <script defer src="nav-mobile.js"></script>
 </head>
@@ -519,14 +520,16 @@
 
       <div class="modal-seccion">
         <div class="modal-seccion-titulo">Resumen para decidir</div>
+        <!--
+          Grid de resumen. La fecha de cierre vive únicamente en
+          `.modal-plazo-alert` (arriba) para evitar duplicación; por eso
+          este grid no incluye `summary-item-cierre`. `modal-summary-note`
+          aparece solo cuando hay <2 items visibles (datos muy parciales).
+        -->
         <div class="modal-info-grid" id="modal-info-grid">
           <div class="modal-info-item" id="summary-item-publicacion">
             <div class="modal-info-label">🕒 Publicada</div>
             <div class="modal-info-val" id="modal-fecha-publicacion">—</div>
-          </div>
-          <div class="modal-info-item" id="summary-item-cierre">
-            <div class="modal-info-label">📅 Fecha de cierre</div>
-            <div class="modal-info-val" id="modal-fecha-cierre">—</div>
           </div>
           <div class="modal-info-item" id="summary-item-ubicacion">
             <div class="modal-info-label">📍 Ubicación</div>
@@ -545,10 +548,9 @@
             <div class="modal-info-val" id="modal-renta">—</div>
           </div>
         </div>
-        <ul class="modal-key-points" id="modal-key-points"></ul>
         <div class="modal-summary-note" id="modal-summary-note" hidden></div>
       </div>
-      <div class="modal-seccion">
+      <div class="modal-seccion" id="modal-requisitos-wrap">
         <div class="modal-seccion-titulo">Requisitos para postular</div>
         <div class="modal-subgrid">
           <div class="modal-subsection" id="sec-req-obligatorios">
@@ -581,7 +583,7 @@
           </div>
         </div>
       </div>
-      <div class="modal-seccion">
+      <div class="modal-seccion" id="modal-funciones-wrap">
         <div class="modal-seccion-titulo">Funciones principales</div>
         <div class="modal-subsection">
           <ul id="modal-funciones-list"></ul>
@@ -591,7 +593,7 @@
         <div class="modal-seccion-titulo">Objetivo del cargo</div>
         <p class="modal-objetivo" id="modal-objetivo"></p>
       </div>
-      <div class="modal-seccion">
+      <div class="modal-seccion" id="modal-condiciones-wrap">
         <div class="modal-seccion-titulo">Condiciones del cargo</div>
         <div class="modal-subsection">
           <ul id="modal-condiciones-list"></ul>
