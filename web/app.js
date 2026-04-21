@@ -1052,7 +1052,7 @@ function getInstIcon(oferta) {
   // detecta naturalWidth<40, advance() pasa a apple-touch-icon → Google → etc.
   const primary = `https://logo.clearbit.com/${dom}?size=256`;
   return {
-    html: `<img src="${primary}" data-attempt="0" alt="Logo de ${escAttr(institucionNombre)}" loading="lazy" decoding="async" onerror="imgFavFallback(this)" onload="imgFavCheckQuality(this)">`,
+    html: `<img src="${primary}" data-attempt="0" alt="Logo de ${escAttr(institucionNombre)}" loading="lazy" decoding="async">`,
     confiable: Boolean(resolved.confiable),
     fuente: resolved.fuente,
   };
@@ -1176,8 +1176,12 @@ function renderCard(oferta) {
         ${escHtml(ciudad)}
       </span>` : ''}
       ${jornada ? `<span class="oferta-detalle">⏱ ${escHtml(jornada)}</span>` : ''}
-      ${oferta.fecha_publicacion ? `<span class="oferta-detalle">🗓 Publicada ${formatFecha(oferta.fecha_publicacion)}</span>` : ''}
-      ${frescura ? `<span class="oferta-frescura${frescura.startsWith('✨') ? ' frescura-nueva' : ''}">${escHtml(frescura)}</span>` : ''}
+      ${/* Mostramos SOLO uno: "hace X días" es más útil cuando es reciente
+           (<=30d, frescura ≠ null). Si es más antigua, cae a la fecha
+           absoluta. Antes se duplicaban los dos renglones. */''}
+      ${frescura
+        ? `<span class="oferta-frescura${frescura.startsWith('✨') ? ' frescura-nueva' : ''}">${escHtml(frescura)}</span>`
+        : (oferta.fecha_publicacion ? `<span class="oferta-detalle">🗓 Publicada ${formatFecha(oferta.fecha_publicacion)}</span>` : '')}
     </div>
     <div class="oferta-footer">
       <div class="oferta-plazo">
@@ -3744,6 +3748,24 @@ inicializarSelectorComunas();
 cargarRegiones();
 initMailcheck();
 initMeilisearchAutocomplete();
+
+// ── Handlers inline → listeners (CSP `script-src 'self'` bloquea `onchange=`,
+//    `oninput=`, etc). Reemplazamos los del HTML con listeners reales. ──
+(function bindInlineFallbacks() {
+  var ordenSel = document.getElementById('ctrl-orden');
+  if (ordenSel) ordenSel.addEventListener('change', function () { setOrdenSelect(this); });
+
+  var porPagSel = document.getElementById('ctrl-por-pagina');
+  if (porPagSel) porPagSel.addEventListener('change', function () { setPorPagina(this); });
+
+  var rentaInp = document.getElementById('filtro-renta-min');
+  if (rentaInp) {
+    rentaInp.addEventListener('input', function () { formatearRentaInput(this); });
+    rentaInp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { buscar(); this.blur(); }
+    });
+  }
+})();
 
 // Carga inicial
 initAutocompletarInstitucion();

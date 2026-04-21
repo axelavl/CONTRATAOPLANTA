@@ -2540,16 +2540,25 @@ header {
    `.resultados-preferencias` con align-items: center. */
 .resultados-preferencias .sort-wrap { align-self: center; }
 
-/* Responsive: en mobile, el padre pasa a grid 1fr y el sort-wrap debe
-   expandirse igual que los otros controles. */
+/* Responsive: en mobile, el sort-wrap necesita fila completa para
+   propia para que no se superponga con `ctrl-por-pagina` ni con los
+   botones de vista. Antes quedaban los 3 controles en la misma fila,
+   y con min-width: 200px del sort-wrap el contenido reventaba hacia
+   la derecha pisando "20 / pág.". */
 @media (max-width: 600px) {
   .resultados-preferencias .sort-wrap {
-    flex: 1;
+    flex: 1 1 100%;   /* fila completa — fuerza wrap de los hermanos */
     min-width: 0;
+    max-width: 100%;
     width: 100%;
+    overflow: hidden; /* red de seguridad si el texto del select es largo */
   }
   .sort-wrap-label { font-size: 10.5px; }
-  .sort-wrap .ctrl-select--sort { font-size: 12px !important; }
+  .sort-wrap .ctrl-select--sort {
+    font-size: 12px !important;
+    min-width: 0 !important;   /* gana al `min-width: 120px` del override */
+    max-width: 100%;
+  }
 }
 
 
@@ -2579,21 +2588,27 @@ header {
   .nav-links { display: none !important; }
 }
 
-/* ── 2. Widgets del sidebar: overflow visible ──────────────────────
-   `.widget { overflow: hidden }` en index.css corta los recuadros
-   cuando tienen border-radius + children con margin negativo (como
-   los CTA flotantes del widget de alertas). Reemplazamos por hidden
-   sólo en el contenido interno, dejando el contenedor externo con
-   overflow visible para que los focus rings, tooltips y box-shadows
-   no se corten.
+/* ── 2. Widgets del sidebar: bordes/esquinas limpios ────────────────
+   El widget tiene `border-radius: 12px` y un `.widget-header` interno
+   con su propio `background` rectangular (#fbfdff en light, var(--bg2)
+   en dark). Para que el header respete las esquinas redondeadas del
+   contenedor, `.widget` DEBE tener `overflow: hidden`. Si lo ponemos
+   visible, el rectángulo del header se "escapa" de los corners y
+   produce el artefacto reportado en "Alertas de empleo" (bordes que
+   parecen rotos o desalineados).
+
+   Shadows y focus rings del interior se mantienen contenidos — para
+   los elementos que necesiten "asomarse" (p.ej. tooltips), usan
+   `position: fixed` y escapan del clipping sin ayuda del widget.
+
+   Para que NINGÚN wrapper externo corte el shadow del widget:
+   `.sidebar` renuncia a su `overflow: hidden` previo.
 */
 .widget {
-  overflow: visible;
-}
-.widget-body,
-.widget-content {
   overflow: hidden;
-  border-radius: inherit;
+}
+.sidebar {
+  overflow: visible;
 }
 
 /* ── 3. Bloque "Explora por región/sector": fondo integrado ────────

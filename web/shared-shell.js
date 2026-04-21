@@ -119,6 +119,28 @@
         advance(img);
       }
     };
+
+    // ── Delegación para CSP-safe fallback ──
+    // CSP `script-src 'self'` (sin 'unsafe-inline') bloquea `onerror=` y
+    // `onload=` inline. Los <img> con `data-attempt` (logos institucionales)
+    // se marcaban con esos atributos pero el browser rechazaba ejecutarlos.
+    // Resultado visible: recuadro vacío con el placeholder "Lo Sup" de alt.
+    //
+    // Fix: capturing listeners en document. `error` y `load` no bubbean,
+    // pero sí se propagan en la fase de captura → llegan a document.
+    document.addEventListener('error', function (e) {
+      var img = e.target;
+      if (!img || img.tagName !== 'IMG') return;
+      if (!img.hasAttribute('data-attempt')) return;
+      advance(img);
+    }, true);
+
+    document.addEventListener('load', function (e) {
+      var img = e.target;
+      if (!img || img.tagName !== 'IMG') return;
+      if (!img.hasAttribute('data-attempt')) return;
+      window.imgFavCheckQuality(img);
+    }, true);
   })();
 
   var page = (document.body && document.body.dataset && document.body.dataset.page) || 'none';
