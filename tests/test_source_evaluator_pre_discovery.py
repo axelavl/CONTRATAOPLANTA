@@ -37,7 +37,7 @@ def test_pre_discovery_aggregates_profile_routes_before_extractor_selection():
             "<html><head><title>Portada</title></head><body>Inicio institucional.</body></html>",
             {"Content-Type": "text/html"},
         ),
-        "https://postulaciones.investigaciones.cl/": (
+        "https://www.pdichile.cl/": (
             200,
             (
                 "<html><head><title>Postulaciones</title></head><body>"
@@ -48,11 +48,6 @@ def test_pre_discovery_aggregates_profile_routes_before_extractor_selection():
             ),
             {"Content-Type": "text/html"},
         ),
-        "https://www.pdichile.cl/concursos": (
-            200,
-            "<html><body><a href=\"/bases.pdf\">bases</a></body></html>",
-            {"Content-Type": "text/html"},
-        ),
     }
     client = FakeHttpClient(payloads=payloads)
     evaluator = SourceEvaluator(http_client=client)
@@ -61,7 +56,8 @@ def test_pre_discovery_aggregates_profile_routes_before_extractor_selection():
 
     assert result.decision == Decision.EXTRACT
     assert result.recommended_extractor == ExtractorKind.SCRAPER_PDF_JOBS
-    assert len(client.visited) == 3
-    assert result.signals_json["pdf_links_count"] == 2
-    assert len(result.signals_json["evaluated_urls_snapshot"]) == 3
+    assert len(client.visited) == 2
+    assert result.signals_json["pdf_links_count"] == 1
+    assert len(result.signals_json["evaluated_urls_snapshot"]) == 2
     assert result.signals_json["institucion_id"] == 162
+    assert result.signals_json["pre_discovery"]["institucion_id"] == 162

@@ -98,6 +98,8 @@ def _extract_pdf_links(soup: BeautifulSoup, source_url: str) -> list[str]:
 
 
 def _build_pre_discovery_urls(*, source_url: str, profile: SourceProfile) -> list[str]:
+    parsed_source = urlparse(source_url)
+    source_origin = f"{parsed_source.scheme}://{parsed_source.netloc}" if parsed_source.scheme and parsed_source.netloc else source_url
     urls: list[str] = [source_url]
     for candidate in profile.candidate_urls:
         if len(urls) >= 3:
@@ -105,15 +107,14 @@ def _build_pre_discovery_urls(*, source_url: str, profile: SourceProfile) -> lis
         if not candidate:
             continue
         parsed = urlparse(candidate)
-        derived = candidate if parsed.scheme else urljoin(source_url, candidate)
+        if parsed.scheme and parsed.netloc:
+            # La ruta debe ser "derivada de perfil": proyectamos el path del candidate
+            # sobre el origen de la fuente base para evitar mezclas de hosts.
+            derived = urljoin(source_origin, parsed.path or "/")
+        else:
+            derived = urljoin(source_origin, candidate)
         if derived not in urls:
             urls.append(derived)
-    for fallback_path in ("/concursos", "/trabaja-con-nosotros", "/ofertas-laborales"):
-        if len(urls) >= 3:
-            break
-        fallback_url = urljoin(source_url, fallback_path)
-        if fallback_url not in urls:
-            urls.append(fallback_url)
     return urls[:3]
 
 
@@ -307,6 +308,7 @@ class SourceEvaluator:
         aggregated_pdf_links: list[str] = []
         aggregated_links: list[str] = []
         inferred_page_types: list[PageType] = []
+        has_jobposting_jsonld = False
         cms: str | None = None
 
         for page in ok_pages:
@@ -330,6 +332,7 @@ class SourceEvaluator:
                 aggregated_text_parts.append(page_text)
             if page.body:
                 aggregated_html_parts.append(page.body)
+            has_jobposting_jsonld = has_jobposting_jsonld or _has_jobposting_jsonld(page_soup)
             if page_soup.title:
                 title_text = page_soup.title.get_text(" ", strip=True)
                 if title_text:
@@ -361,7 +364,7 @@ class SourceEvaluator:
             publication_date=dates.publication_date,
             closing_date=dates.closing_date,
             application_deadline=dates.application_deadline,
-            has_jobposting_jsonld=any(_has_jobposting_jsonld(BeautifulSoup(html, "html.parser")) for html in aggregated_html_parts),
+            has_jobposting_jsonld=has_jobposting_jsonld,
             pdf_links=aggregated_pdf_links,
             known_ats=representative_page_type == PageType.ATS_EXTERNAL or profile.extractor_hint == ExtractorKind.SCRAPER_EXTERNAL_ATS,
             bot_or_js=availability in {Availability.JS_REQUIRED, Availability.BLOCKED_BY_BOT_PROTECTION},
@@ -411,6 +414,17 @@ class SourceEvaluator:
                 "pdf_links_count": len(aggregated_pdf_links),
                 "pdf_links": aggregated_pdf_links[:5],
                 "discovered_links_count": len(aggregated_links),
+                "pre_discovery": {
+                    "institucion_id": source.get("id"),
+                    "evaluated_urls_snapshot": [
+                        {
+                            "url": page.final_url,
+                            "status": page.status,
+                            "availability": item_availability.value,
+                        }
+                        for page, item_availability in page_with_availability
+                    ],
+                },
                 "evaluated_urls_snapshot": [
                     {
                         "url": page.final_url,
