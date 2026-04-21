@@ -160,3 +160,60 @@ class AuditStore:
                 return float(row[0] or 0.0)
         except Exception:
             return 0.0
+
+    def get_generic_site_last_success_path(self, conn, institucion_id: int | None) -> str | None:
+        if not institucion_id:
+            return None
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT payload->>'source_url'
+                    FROM catalog_integrity_events
+                    WHERE institucion_id = %s
+                      AND event_type = 'generic_site_last_success_path'
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (institucion_id,),
+                )
+                row = cur.fetchone()
+                return str(row[0]) if row and row[0] else None
+        except Exception:
+            return None
+
+    def save_generic_site_success_path(
+        self,
+        conn,
+        *,
+        institucion_id: int | None,
+        fuente_id: int | None,
+        source_url: str,
+    ) -> None:
+        if not institucion_id or not source_url:
+            return
+        with conn.cursor() as cur:
+            cur.execute("SAVEPOINT sp_generic_site_path")
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO catalog_integrity_events (
+                        institucion_id,
+                        event_type,
+                        detail,
+                        payload
+                    ) VALUES (%s, %s, %s, %s::jsonb)
+                    """,
+                    (
+                        institucion_id,
+                        "generic_site_last_success_path",
+                        f"Última ruta exitosa para GenericSiteScraper: {source_url}",
+                        json.dumps(
+                            {"source_url": source_url, "fuente_id": fuente_id},
+                            ensure_ascii=False,
+                        ),
+                    ),
+                )
+                cur.execute("RELEASE SAVEPOINT sp_generic_site_path")
+            except Exception:
+                cur.execute("ROLLBACK TO SAVEPOINT sp_generic_site_path")

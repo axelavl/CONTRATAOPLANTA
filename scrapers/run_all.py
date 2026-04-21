@@ -98,7 +98,6 @@ _POLICIA_PROFILES = {
     162: (ExtractorKind.SCRAPER_PDF_JOBS, "pdi_pdf_first"),
 }
 
-
 def _bypass_evaluation(source: dict[str, Any]) -> EvaluationResult | None:
     """
     Si source_overrides.json declara un kind personalizado conocido, devuelve un
