@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import unicodedata
@@ -96,6 +97,41 @@ def _extract_pdf_links(soup: BeautifulSoup, source_url: str) -> list[str]:
     return links
 
 
+def _build_pre_discovery_urls(*, source_url: str, profile: SourceProfile) -> list[str]:
+    urls: list[str] = [source_url]
+    for candidate in profile.candidate_urls:
+        if len(urls) >= 3:
+            break
+        if not candidate:
+            continue
+        parsed = urlparse(candidate)
+        derived = candidate if parsed.scheme else urljoin(source_url, candidate)
+        if derived not in urls:
+            urls.append(derived)
+    for fallback_path in ("/concursos", "/trabaja-con-nosotros", "/ofertas-laborales"):
+        if len(urls) >= 3:
+            break
+        fallback_url = urljoin(source_url, fallback_path)
+        if fallback_url not in urls:
+            urls.append(fallback_url)
+    return urls[:3]
+
+
+def _page_type_priority(page_type: PageType) -> int:
+    order = {
+        PageType.DOCUMENT_PAGE: 8,
+        PageType.ATS_EXTERNAL: 7,
+        PageType.DETAIL_PAGE: 6,
+        PageType.WORDPRESS_POST: 5,
+        PageType.LISTING_PAGE: 4,
+        PageType.WORDPRESS_LISTING: 3,
+        PageType.NEWS_PAGE: 2,
+        PageType.GENERAL_PAGE: 1,
+        PageType.UNKNOWN_PAGE_TYPE: 0,
+    }
+    return order.get(page_type, 0)
+
+
 def _infer_page_type(*, page: FetchedPage, soup: BeautifulSoup, profile: SourceProfile) -> tuple[PageType, str | None]:
     final_url = page.final_url.lower()
     content_type = (page.content_type or "").lower()
@@ -187,22 +223,36 @@ class SourceEvaluator:
         if owns_http:
             await client.__aenter__()
         try:
-            fetched = await client.fetch(source_url)
+            pre_discovery_urls = _build_pre_discovery_urls(source_url=source_url, profile=profile)
+            fetched_pages = await asyncio.gather(*(client.fetch(url) for url in pre_discovery_urls))
         finally:
             if owns_http:
                 await client.__aexit__(None, None, None)
 
-        page = FetchedPage(
-            source_url=source_url,
-            final_url=fetched.final_url,
-            status=fetched.status,
-            headers=fetched.headers,
-            body=fetched.body or "",
-            content_type=fetched.headers.get("Content-Type"),
-            error_type=fetched.error_type,
-            error_detail=fetched.error_detail,
+        pages: list[FetchedPage] = [
+            FetchedPage(
+                source_url=source_url,
+                final_url=fetched.final_url,
+                status=fetched.status,
+                headers=fetched.headers,
+                body=fetched.body or "",
+                content_type=fetched.headers.get("Content-Type"),
+                error_type=fetched.error_type,
+                error_detail=fetched.error_detail,
+            )
+            for fetched in fetched_pages
+        ]
+        page_with_availability = [(page, _availability_from_fetch(page)) for page in pages]
+        ok_pages = [page for page, availability in page_with_availability if availability == Availability.OK]
+        first_page = pages[0]
+        availability = (
+            Availability.OK
+            if ok_pages
+            else next(
+                (item_availability for item_page, item_availability in page_with_availability if item_page.final_url == first_page.final_url),
+                Availability.EMPTY_RESPONSE,
+            )
         )
-        availability = _availability_from_fetch(page)
         if availability != Availability.OK:
             selection = select_extractor(
                 profile,
@@ -222,7 +272,7 @@ class SourceEvaluator:
             return EvaluationResult(
                 source_url=source_url,
                 availability=availability,
-                http_status=page.status,
+                http_status=first_page.status,
                 page_type=PageType.UNKNOWN_PAGE_TYPE,
                 job_relevance=JobRelevance.UNCERTAIN,
                 open_calls_status=OpenCallsStatus.UNKNOWN_STATUS,
@@ -242,40 +292,78 @@ class SourceEvaluator:
                 retry_policy=profile.retry_policy,
                 signals_json={
                     "profile": profile.name,
-                    "error_type": page.error_type,
-                    "error_detail": page.error_detail,
-                    "content_type": page.content_type,
+                    "error_type": first_page.error_type,
+                    "error_detail": first_page.error_detail,
+                    "content_type": first_page.content_type,
+                    "pre_discovery_urls": [page.final_url for page in pages],
                 },
                 evaluated_at=datetime.now(),
                 profile_name=profile.name,
             )
 
-        soup = BeautifulSoup(page.body, "html.parser")
-        page_type, cms = _infer_page_type(page=page, soup=soup, profile=profile)
-        body_text = soup.get_text(" ", strip=True)
-        title = soup.title.get_text(" ", strip=True) if soup.title else None
-        dates = extract_dates(html=page.body, text=body_text, reference_date=self.reference_date)
+        aggregated_html_parts: list[str] = []
+        aggregated_text_parts: list[str] = []
+        aggregated_titles: list[str] = []
+        aggregated_pdf_links: list[str] = []
+        aggregated_links: list[str] = []
+        inferred_page_types: list[PageType] = []
+        cms: str | None = None
+
+        for page in ok_pages:
+            page_soup = BeautifulSoup(page.body, "html.parser")
+            page_type, page_cms = _infer_page_type(page=page, soup=page_soup, profile=profile)
+            inferred_page_types.append(page_type)
+            if cms is None and page_cms:
+                cms = page_cms
+            if page_type == PageType.DOCUMENT_PAGE and page.final_url not in aggregated_pdf_links:
+                aggregated_pdf_links.append(page.final_url)
+            page_pdf_links = _extract_pdf_links(page_soup, page.final_url)
+            for pdf in page_pdf_links:
+                if pdf not in aggregated_pdf_links:
+                    aggregated_pdf_links.append(pdf)
+            for anchor in page_soup.find_all("a", href=True):
+                full_link = urljoin(page.final_url, anchor["href"])
+                if full_link not in aggregated_links:
+                    aggregated_links.append(full_link)
+            page_text = page_soup.get_text(" ", strip=True)
+            if page_text:
+                aggregated_text_parts.append(page_text)
+            if page.body:
+                aggregated_html_parts.append(page.body)
+            if page_soup.title:
+                title_text = page_soup.title.get_text(" ", strip=True)
+                if title_text:
+                    aggregated_titles.append(title_text)
+
+        representative_page_type = (
+            sorted(inferred_page_types, key=_page_type_priority, reverse=True)[0]
+            if inferred_page_types
+            else PageType.UNKNOWN_PAGE_TYPE
+        )
+        body_text = " ".join(aggregated_text_parts)
+        combined_html = "\n".join(aggregated_html_parts)
+        title = aggregated_titles[0] if aggregated_titles else None
+        dates = extract_dates(html=combined_html, text=body_text, reference_date=self.reference_date)
         validity = assess_validity(
-            page_type=page_type,
+            page_type=representative_page_type,
             text=body_text,
             publication_date=dates.publication_date,
             closing_date=dates.closing_date,
             application_deadline=dates.application_deadline,
             reference_date=self.reference_date,
         )
-        pdf_links = _extract_pdf_links(soup, page.final_url)
         signal_bundle = build_signal_bundle(
-            source_url=page.final_url,
+            source_url=ok_pages[0].final_url if ok_pages else source_url,
             title=title,
             text=body_text,
-            page_type=page_type,
+            page_type=representative_page_type,
             profile=profile,
             publication_date=dates.publication_date,
             closing_date=dates.closing_date,
             application_deadline=dates.application_deadline,
-            has_jobposting_jsonld=_has_jobposting_jsonld(soup),
-            pdf_links=pdf_links,
-            known_ats=page_type == PageType.ATS_EXTERNAL or profile.extractor_hint == ExtractorKind.SCRAPER_EXTERNAL_ATS,
+            has_jobposting_jsonld=any(_has_jobposting_jsonld(BeautifulSoup(html, "html.parser")) for html in aggregated_html_parts),
+            pdf_links=aggregated_pdf_links,
+            known_ats=representative_page_type == PageType.ATS_EXTERNAL or profile.extractor_hint == ExtractorKind.SCRAPER_EXTERNAL_ATS,
             bot_or_js=availability in {Availability.JS_REQUIRED, Availability.BLOCKED_BY_BOT_PROTECTION},
             open_signal_count=validity.open_signal_count,
             cms=cms,
@@ -288,7 +376,7 @@ class SourceEvaluator:
             signal_bundle.negative_signals.append("historical_noise_penalty")
             signal_bundle.metadata["historical_noise_ratio"] = round(historical_noise_ratio, 4)
 
-        job_relevance = _infer_job_relevance(body_text, page_type, confidence)
+        job_relevance = _infer_job_relevance(body_text, representative_page_type, confidence)
         open_calls_status = validity.open_calls_status
         if job_relevance == JobRelevance.NON_JOB:
             open_calls_status = OpenCallsStatus.NO_CALLS_FOUND
@@ -300,7 +388,7 @@ class SourceEvaluator:
         selection = select_extractor(
             profile,
             availability=availability,
-            page_type=page_type,
+            page_type=representative_page_type,
             job_relevance=job_relevance,
             validity_status=validity.status,
             confidence=effective_confidence,
@@ -320,8 +408,18 @@ class SourceEvaluator:
             {
                 "profile": profile.name,
                 "page_title": title,
-                "pdf_links_count": len(pdf_links),
-                "pdf_links": pdf_links[:5],
+                "pdf_links_count": len(aggregated_pdf_links),
+                "pdf_links": aggregated_pdf_links[:5],
+                "discovered_links_count": len(aggregated_links),
+                "evaluated_urls_snapshot": [
+                    {
+                        "url": page.final_url,
+                        "status": page.status,
+                        "availability": item_availability.value,
+                    }
+                    for page, item_availability in page_with_availability
+                ],
+                "institucion_id": source.get("id"),
                 **dates.to_json(),
                 "open_calls_status": open_calls_status.value,
             }
@@ -330,8 +428,8 @@ class SourceEvaluator:
         return EvaluationResult(
             source_url=source_url,
             availability=availability,
-            http_status=page.status,
-            page_type=page_type,
+            http_status=first_page.status,
+            page_type=representative_page_type,
             job_relevance=job_relevance,
             open_calls_status=open_calls_status,
             validity_status=validity.status,
