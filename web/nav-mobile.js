@@ -191,6 +191,7 @@
   btn.addEventListener('click', function () {
     btn.classList.contains('abierto') ? cerrarMenu() : abrirMenu();
   });
+  window.__hamburgerInitHooked = true;
   overlay.addEventListener('click', function () { cerrarMenu(true); });
   panel.querySelectorAll('a').forEach(function (a) {
     a.addEventListener('click', function () { cerrarMenu(false); });
@@ -217,4 +218,40 @@
 if (!initMobileNav()) {
   document.addEventListener('shell:ready', function(){ initMobileNav(); }, { once: true });
 }
+
+// Listener delegado en document como red de seguridad: si el init
+// no alcanzó a enganchar el listener al botón (race con el partial,
+// script cargado dos veces en distinto orden, etc.), este captura el
+// click desde cualquier `.hamburger` y abre el panel. Si el init ya
+// registró su handler, `__hamburgerInitHooked` evita que ambos se
+// disparen y cancelen (toggle x2 = no-op).
+document.addEventListener('click', function (e) {
+  if (window.__hamburgerInitHooked) return;
+  var trg = e.target.closest && e.target.closest('.hamburger');
+  if (!trg) return;
+  e.preventDefault();
+  // Asegura que haya panel + overlay montados (reintenta init si no).
+  if (!document.getElementById('nav-mobile-panel') || !document.getElementById('nav-mobile-overlay')) {
+    try { initMobileNav(); } catch (_) { /* silencio */ }
+  }
+  var panel = document.getElementById('nav-mobile-panel');
+  var overlay = document.getElementById('nav-mobile-overlay');
+  if (!panel || !overlay) return;
+  var abierto = trg.classList.contains('abierto');
+  if (abierto) {
+    trg.classList.remove('abierto');
+    trg.setAttribute('aria-expanded', 'false');
+    trg.setAttribute('aria-label', 'Abrir menú');
+    panel.classList.remove('visible');
+    overlay.classList.remove('visible');
+    document.body.style.overflow = '';
+  } else {
+    trg.classList.add('abierto');
+    trg.setAttribute('aria-expanded', 'true');
+    trg.setAttribute('aria-label', 'Cerrar menú');
+    panel.classList.add('visible');
+    overlay.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+});
 })();
