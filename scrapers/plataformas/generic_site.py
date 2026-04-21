@@ -58,6 +58,60 @@ GENERIC_NEGATIVE_KEYWORDS = (
     "cuenta pública",
 )
 
+GENERIC_CORE_SIGNAL_PATTERNS: dict[str, tuple[str, ...]] = {
+    "cargo": (
+        r"\bcargo\b",
+        r"nombre del cargo",
+        r"\bvacante\b",
+        r"\bpuesto\b",
+        r"concurso p[úu]blico",
+    ),
+    "fecha_cierre": (
+        r"fecha de cierre",
+        r"cierre de postulaci[oó]n",
+        r"postulaciones hasta",
+        r"plazo de postulaci[oó]n",
+        r"recepci[oó]n de antecedentes hasta",
+    ),
+    "requisitos": (
+        r"requisitos del cargo",
+        r"requisitos exigibles",
+        r"requisitos deseables",
+        r"\brequisitos\b",
+        r"funciones del cargo",
+        r"principales funciones",
+    ),
+    "contrato": (
+        r"\bcontrata\b",
+        r"\bplanta\b",
+        r"calidad jur[ií]dica",
+        r"c[oó]digo del trabajo",
+        r"\breemplazo\b",
+        r"\bsuplencia\b",
+    ),
+    "link_postulacion": (
+        r"postulaci[oó]n",
+        r"postular",
+        r"enviar antecedentes",
+        r"recepci[oó]n de antecedentes",
+        r"formulario de postulaci[oó]n",
+    ),
+}
+
+GENERIC_STRONG_NEGATIVE_PATTERNS: dict[str, tuple[str, ...]] = {
+    "noticia": (r"noticias?", r"prensa", r"comunicado", r"bolet[ií]n", r"actualidad", r"novedades?"),
+    "actividad": (r"agenda", r"evento", r"seminario", r"charla", r"taller", r"ceremonia", r"aniversario"),
+    "resultados": (
+        r"resultados? del concurso",
+        r"n[oó]mina de seleccionad",
+        r"adjudicaci[oó]n",
+        r"proceso finalizado",
+        r"concurso cerrado",
+        r"postulaciones cerradas",
+    ),
+    "licitacion": (r"licitaci[oó]n", r"mercado p[úu]blico", r"compra p[úu]blica", r"proveedor"),
+}
+
 DEFAULT_PATH_CANDIDATES: tuple[str, ...] = (
     "/concursos-publicos",
     "/trabaja-con-nosotros",
@@ -190,7 +244,8 @@ class GenericSiteScraper(BaseScraper):
                 title = clean_text(item.get("title"))
                 description = self._html_to_text(item.get("description"))
                 url = clean_text(item.get("url")) or source_url
-                if not self._looks_like_offer(title, description):
+                is_offer, _ = self._score_offer_candidate(title, description)
+                if not is_offer:
                     continue
                 results.append(
                     RawCandidate(
@@ -211,7 +266,8 @@ class GenericSiteScraper(BaseScraper):
         results: list[RawCandidate] = []
         for node in containers:
             content_text = clean_text(node.get_text(" ", strip=True))
-            if not self._looks_like_offer("", content_text):
+            is_offer, _ = self._score_offer_candidate("", content_text)
+            if not is_offer:
                 continue
             title_el = node.select_one("h1 a, h2 a, h3 a, h4 a, .title a, .job-title a, a[href]")
             title = clean_text(title_el.get_text(" ", strip=True) if title_el else "")
@@ -237,7 +293,8 @@ class GenericSiteScraper(BaseScraper):
         results: list[RawCandidate] = []
         for row in soup.select("table tr"):
             row_text = clean_text(row.get_text(" ", strip=True))
-            if not self._looks_like_offer("", row_text):
+            is_offer, _ = self._score_offer_candidate("", row_text)
+            if not is_offer:
                 continue
             link = row.select_one("a[href]")
             href = clean_text(link.get("href") if link else "")
@@ -265,7 +322,8 @@ class GenericSiteScraper(BaseScraper):
             title = clean_text(anchor.get_text(" ", strip=True))
             parent = anchor.find_parent(["li", "p", "div", "tr", "article", "section"])
             context = clean_text(parent.get_text(" ", strip=True)) if parent else title
-            if not self._looks_like_offer(title, context):
+            is_offer, _ = self._score_offer_candidate(title, context)
+            if not is_offer:
                 continue
             pdf_links = [urljoin(source_url, href)] if ".pdf" in href.lower() else []
             results.append(
@@ -324,7 +382,8 @@ class GenericSiteScraper(BaseScraper):
     def _candidate_to_oferta(self, candidate: RawCandidate) -> OfertaRaw | None:
         title = clean_text(candidate.title)
         content_text = clean_text(candidate.content_text)
-        if not self._looks_like_offer(title, content_text):
+        is_offer, _ = self._score_offer_candidate(title, content_text)
+        if not is_offer:
             return None
         fecha_publicacion = parse_date(candidate.date_value)
         fecha_cierre = parse_date(candidate.closing_value) or self._extract_closing_hint(content_text)
@@ -354,15 +413,43 @@ class GenericSiteScraper(BaseScraper):
             url_bases=url_bases,
         )
 
-    def _looks_like_offer(self, title: str, content: str) -> bool:
+    def _score_offer_candidate(self, title: str, content: str) -> tuple[bool, str | None]:
         hay_texto = clean_text(f"{title} {content}")
         if len(hay_texto) < 8:
-            return False
-        key = normalize_key(hay_texto)
-        if any(normalize_key(keyword) in key for keyword in GENERIC_NEGATIVE_KEYWORDS):
-            if not any(normalize_key(keyword) in key for keyword in GENERIC_JOB_KEYWORDS + self.extra_keywords):
-                return False
-        return any(normalize_key(keyword) in key for keyword in GENERIC_JOB_KEYWORDS + self.extra_keywords)
+            return False, "texto_insuficiente"
+
+        normalized = normalize_key(hay_texto)
+        score = 0
+        core_hits: set[str] = set()
+        positive_hits: list[str] = []
+        negative_hits: list[str] = []
+
+        for signal, patterns in GENERIC_CORE_SIGNAL_PATTERNS.items():
+            if any(re.search(pattern, hay_texto, re.IGNORECASE) for pattern in patterns):
+                score += 1
+                core_hits.add(signal)
+                positive_hits.append(signal)
+
+        # Compatibilidad con palabras-clave históricas y extensiones por fuente.
+        if any(normalize_key(keyword) in normalized for keyword in GENERIC_JOB_KEYWORDS + self.extra_keywords):
+            score += 1
+            positive_hits.append("job_taxonomy_keyword")
+
+        for signal, patterns in GENERIC_STRONG_NEGATIVE_PATTERNS.items():
+            if any(re.search(pattern, hay_texto, re.IGNORECASE) for pattern in patterns):
+                score -= 2
+                negative_hits.append(signal)
+
+        # Backward-compatible penalty for broader negative list.
+        if any(normalize_key(keyword) in normalized for keyword in GENERIC_NEGATIVE_KEYWORDS):
+            score -= 1
+            negative_hits.append("generic_negative_keyword")
+
+        if len(core_hits) < 2:
+            return False, f"core_signals<{len(core_hits)} positives={positive_hits} negatives={negative_hits}"
+        if score <= 0:
+            return False, f"score={score} positives={positive_hits} negatives={negative_hits}"
+        return True, None
 
     def _extract_pdf_links_from_node(self, node: Any, source_url: str) -> list[str]:
         links: list[str] = []
