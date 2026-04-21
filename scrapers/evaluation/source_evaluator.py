@@ -228,7 +228,13 @@ class SourceEvaluator:
         self.http = http_client
         self.reference_date = reference_date or date.today()
 
-    async def evaluate(self, source: dict[str, Any], *, historical_noise_ratio: float = 0.0) -> EvaluationResult:
+    async def evaluate(
+        self,
+        source: dict[str, Any],
+        *,
+        historical_noise_ratio: float = 0.0,
+        historical_source_metrics: dict[str, Any] | None = None,
+    ) -> EvaluationResult:
         source_url = str(source.get("url_empleo") or source.get("sitio_web") or "").strip()
         profile_match = classify_source_profile(source)
         profile = profile_match.profile
@@ -339,11 +345,13 @@ class SourceEvaluator:
                     reference_date=self.reference_date,
                 ).status,
                 confidence=0.0,
+                source_quality_metrics=historical_source_metrics,
             )
             signals_json.update(
                 {
                     "extract_threshold_applied": selection.extract_threshold_applied,
                     "manual_threshold_applied": selection.manual_threshold_applied,
+                    "threshold_validation": selection.threshold_validation,
                 }
             )
             return EvaluationResult(
@@ -481,6 +489,7 @@ class SourceEvaluator:
             job_relevance=job_relevance,
             validity_status=validity.status,
             confidence=effective_confidence,
+            source_quality_metrics=historical_source_metrics,
         )
 
         if selection.decision == Decision.SKIP and selection.reason_code is None:
@@ -531,6 +540,7 @@ class SourceEvaluator:
                 "age_expiry_evidence": validity.age_expiry_evidence,
                 "extract_threshold_applied": selection.extract_threshold_applied,
                 "manual_threshold_applied": selection.manual_threshold_applied,
+                "threshold_validation": selection.threshold_validation,
             }
         )
         if profile_match.source_requires_override:
