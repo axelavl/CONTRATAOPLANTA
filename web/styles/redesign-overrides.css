@@ -2540,16 +2540,25 @@ header {
    `.resultados-preferencias` con align-items: center. */
 .resultados-preferencias .sort-wrap { align-self: center; }
 
-/* Responsive: en mobile, el padre pasa a grid 1fr y el sort-wrap debe
-   expandirse igual que los otros controles. */
+/* Responsive: en mobile, el sort-wrap necesita fila completa para
+   propia para que no se superponga con `ctrl-por-pagina` ni con los
+   botones de vista. Antes quedaban los 3 controles en la misma fila,
+   y con min-width: 200px del sort-wrap el contenido reventaba hacia
+   la derecha pisando "20 / pág.". */
 @media (max-width: 600px) {
   .resultados-preferencias .sort-wrap {
-    flex: 1;
+    flex: 1 1 100%;   /* fila completa — fuerza wrap de los hermanos */
     min-width: 0;
+    max-width: 100%;
     width: 100%;
+    overflow: hidden; /* red de seguridad si el texto del select es largo */
   }
   .sort-wrap-label { font-size: 10.5px; }
-  .sort-wrap .ctrl-select--sort { font-size: 12px !important; }
+  .sort-wrap .ctrl-select--sort {
+    font-size: 12px !important;
+    min-width: 0 !important;   /* gana al `min-width: 120px` del override */
+    max-width: 100%;
+  }
 }
 
 
