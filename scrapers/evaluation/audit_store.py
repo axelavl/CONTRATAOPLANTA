@@ -168,9 +168,12 @@ class AuditStore:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT last_success_url
-                    FROM generic_site_path_audit
+                    SELECT payload->>'source_url'
+                    FROM catalog_integrity_events
                     WHERE institucion_id = %s
+                      AND event_type = 'generic_site_last_success_path'
+                    ORDER BY created_at DESC
+                    LIMIT 1
                     """,
                     (institucion_id,),
                 )
@@ -194,18 +197,22 @@ class AuditStore:
             try:
                 cur.execute(
                     """
-                    INSERT INTO generic_site_path_audit (
+                    INSERT INTO catalog_integrity_events (
                         institucion_id,
-                        fuente_id,
-                        last_success_url,
-                        updated_at
-                    ) VALUES (%s, %s, %s, NOW())
-                    ON CONFLICT (institucion_id) DO UPDATE SET
-                        fuente_id = EXCLUDED.fuente_id,
-                        last_success_url = EXCLUDED.last_success_url,
-                        updated_at = NOW()
+                        event_type,
+                        detail,
+                        payload
+                    ) VALUES (%s, %s, %s, %s::jsonb)
                     """,
-                    (institucion_id, fuente_id, source_url),
+                    (
+                        institucion_id,
+                        "generic_site_last_success_path",
+                        f"Última ruta exitosa para GenericSiteScraper: {source_url}",
+                        json.dumps(
+                            {"source_url": source_url, "fuente_id": fuente_id},
+                            ensure_ascii=False,
+                        ),
+                    ),
                 )
                 cur.execute("RELEASE SAVEPOINT sp_generic_site_path")
             except Exception:
