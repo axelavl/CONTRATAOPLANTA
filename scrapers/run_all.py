@@ -45,7 +45,7 @@ from scrapers.base import (
     limpiar_vencidas,
     setup_logging,
 )
-from scrapers.frequency_policy import FrequencyTier, profile_for_tier, should_evaluate_now
+from scrapers.frequency_policy import should_evaluate_now
 from scrapers.empleos_publicos import EmpleosPublicosScraper
 from scrapers.evaluation.audit_store import AuditStore
 from scrapers.evaluation.catalog_loader import CatalogLoader
@@ -54,7 +54,6 @@ from scrapers.evaluation.models import (
     JobRelevance, OpenCallsStatus, PageType,
     RetryPolicy, ValidityStatus, EvaluationResult,
 )
-from scrapers.evaluation.source_profiles import PROFILES
 from scrapers.evaluation.source_evaluator import SourceEvaluator
 from scrapers.source_status import ScraperKind, classify_source
 from scrapers.plataformas.buk import BukScraper
@@ -97,45 +96,6 @@ _POLICIA_PROFILES = {
     161: (ExtractorKind.SCRAPER_PDF_JOBS, "carabineros_pdf_first"),
     162: (ExtractorKind.SCRAPER_PDF_JOBS, "pdi_pdf_first"),
 }
-
-_SOURCE_PROFILES_BY_NAME = {profile.name: profile for profile in PROFILES}
-
-
-def _generic_max_candidate_urls(evaluation: Any) -> int:
-    def _normalize_limit(value: Any) -> int | None:
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            return None
-        return max(1, parsed)
-
-    profile_name = (evaluation.profile_name or "").strip().lower()
-    if profile_name:
-        profile = _SOURCE_PROFILES_BY_NAME.get(profile_name)
-        if profile and profile.max_candidate_urls is not None:
-            normalized = _normalize_limit(profile.max_candidate_urls)
-            if normalized is not None:
-                return normalized
-    retry_policy_obj = getattr(evaluation, "retry_policy", None)
-    if isinstance(retry_policy_obj, RetryPolicy):
-        retry_policy = retry_policy_obj.value
-    else:
-        retry_policy = str(retry_policy_obj or "").strip().lower()
-    try:
-        tier = FrequencyTier(retry_policy)
-    except ValueError:
-        tier = FrequencyTier.MEDIUM
-    normalized = _normalize_limit(profile_for_tier(tier).max_candidate_urls)
-    return normalized if normalized is not None else 4
-
-
-def _generic_scraper_for(item: RuntimeSource, evaluation: Any) -> GenericSiteScraper:
-    return GenericSiteScraper(
-        fuente_id=item.fuente_id,
-        institucion=item.institucion,
-        max_candidate_urls=_generic_max_candidate_urls(evaluation),
-    )
-
 
 def _bypass_evaluation(source: dict[str, Any]) -> EvaluationResult | None:
     """
@@ -503,7 +463,7 @@ def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
             elif profile_name == "ats_buk":
                 scrapers.append(BukScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             else:
-                scrapers.append(_generic_scraper_for(item, evaluation))
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             continue
 
         if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PDF_JOBS:
@@ -513,7 +473,7 @@ def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
             elif inst_id == 162:
                 scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             else:
-                scrapers.append(_generic_scraper_for(item, evaluation))
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             continue
 
         if evaluation.recommended_extractor == ExtractorKind.SCRAPER_CUSTOM_DETAIL:
@@ -525,7 +485,7 @@ def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
             elif item.institucion.get("id") == 162:
                 scrapers.append(PdiScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             else:
-                scrapers.append(_generic_scraper_for(item, evaluation))
+                scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             continue
 
         if evaluation.recommended_extractor == ExtractorKind.SCRAPER_PLAYWRIGHT:
@@ -533,7 +493,7 @@ def _build_scrapers(runtime_sources: list[RuntimeSource]) -> list[BaseScraper]:
             continue
 
         if evaluation.recommended_extractor == ExtractorKind.SCRAPER_GENERIC_FALLBACK:
-            scrapers.append(_generic_scraper_for(item, evaluation))
+            scrapers.append(GenericSiteScraper(fuente_id=item.fuente_id, institucion=item.institucion))
             continue
     return scrapers
 
