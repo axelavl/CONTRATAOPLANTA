@@ -2025,24 +2025,45 @@ async function abrirModal(ofertaId) {
     // Umbral bajo para que ambas secciones (Requisitos + Descripción)
     // quepan en el primer viewport con un "Ver más" si hace falta. Los
     // textos cortos (<= umbral) se muestran completos sin truncar.
+    // rich-text.js devuelve "" cuando sólo quedan subtítulos huérfanos,
+    // así que aquí sólo vemos contenido realmente renderizable.
     const desc = o.descripcion || '';
     const descHtml = formatRichText(desc, {
       truncate: true,
       truncateAt: 380,
       suppressHeadings: ['descripción', 'descripción del cargo', 'funciones', 'funciones del cargo']
     });
-    document.getElementById('modal-descripcion').innerHTML = descHtml ||
-      '<p>Revisa las bases del concurso para más información sobre funciones y beneficios.</p>';
-
-    // Requisitos — formato enriquecido (viñetas, numerados, títulos)
     const reqTexto = o.requisitos || '';
     const reqHtml  = formatRichText(reqTexto, {
       truncate: true,
       truncateAt: 360,
       suppressHeadings: ['requisitos', 'requisitos principales', 'requisitos del cargo']
     });
-    document.getElementById('modal-requisitos').innerHTML = reqHtml ||
-      '<p>Consulta las bases del concurso para conocer los requisitos completos.</p>';
+
+    // Oculta la sección completa (título incluido) cuando no hay contenido real.
+    // Si ambas vienen vacías, deja sólo la descripción con un mensaje breve
+    // que invita a revisar las bases, sin duplicar el fallback.
+    const reqEl  = document.getElementById('modal-requisitos');
+    const descEl = document.getElementById('modal-descripcion');
+    const reqSeccion  = reqEl  ? reqEl.closest('.modal-seccion')  : null;
+    const descSeccion = descEl ? descEl.closest('.modal-seccion') : null;
+    if (reqHtml) {
+      reqEl.innerHTML = reqHtml;
+      if (reqSeccion) reqSeccion.hidden = false;
+    } else if (reqSeccion) {
+      reqSeccion.hidden = true;
+      reqEl.innerHTML = '';
+    }
+    if (descHtml) {
+      descEl.innerHTML = descHtml;
+      if (descSeccion) descSeccion.hidden = false;
+    } else if (!reqHtml) {
+      descEl.innerHTML = '<p class="modal-empty-fallback">Revisa las bases del concurso para conocer requisitos, funciones y condiciones completas.</p>';
+      if (descSeccion) descSeccion.hidden = false;
+    } else if (descSeccion) {
+      descSeccion.hidden = true;
+      descEl.innerHTML = '';
+    }
 
     // Botón postular — gateado primero por flag backend, luego por validación cliente.
     const btnPostular = document.getElementById('modal-btn-postular');
