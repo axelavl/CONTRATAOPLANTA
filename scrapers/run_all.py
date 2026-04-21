@@ -153,9 +153,24 @@ class RuntimeSource:
 
 
 @dataclass(slots=True)
+class CooldownDecision:
+    source: dict[str, Any]
+    reevaluate: bool
+    reason: str
+
+
+@dataclass(slots=True)
 class RuntimeScraperAssignment:
     institucion_id: int | None
     scraper: BaseScraper
+
+
+@dataclass(slots=True)
+class LastEvaluationState:
+    retry_policy: str | None
+    evaluated_at: datetime | None
+    consecutive_zero_extractions: int
+    zero_cooldown_bypass_used: bool
 
 
 def _host(url: str | None) -> str:
@@ -236,14 +251,13 @@ def _build_discovery_catalog(
     return items[:limit] if limit else items
 
 
-def _load_last_evaluations() -> dict[int, tuple[str | None, datetime | None]]:
-    """Carga la última retry_policy y evaluated_at por institucion_id desde source_evaluations.
+def _load_last_evaluations() -> dict[int, LastEvaluationState]:
+    """Carga estado de última evaluación por institucion_id desde source_evaluations.
 
     Returns:
-        Dict ``{institucion_id: (retry_policy_str, evaluated_at)}``.
-        Las claves son ``int``; el valor puede tener ``None`` en cualquier campo.
+        Dict ``{institucion_id: LastEvaluationState}``.
     """
-    result: dict[int, tuple[str | None, datetime | None]] = {}
+    result: dict[int, LastEvaluationState] = {}
     try:
         with conexion() as conn:
             with conn.cursor() as cur:
@@ -252,14 +266,21 @@ def _load_last_evaluations() -> dict[int, tuple[str | None, datetime | None]]:
                     SELECT DISTINCT ON (institucion_id)
                         institucion_id,
                         retry_policy,
-                        evaluated_at
+                        evaluated_at,
+                        COALESCE((signals_json ->> 'consecutive_zero_extractions')::int, 0) AS consecutive_zero_extractions,
+                        COALESCE((signals_json ->> 'zero_cooldown_bypass_used')::boolean, FALSE) AS zero_cooldown_bypass_used
                     FROM source_evaluations
                     WHERE institucion_id IS NOT NULL
                     ORDER BY institucion_id, evaluated_at DESC
                     """
                 )
-                for inst_id, retry_policy, evaluated_at in cur.fetchall():
-                    result[inst_id] = (retry_policy, evaluated_at)
+                for inst_id, retry_policy, evaluated_at, zero_count, bypass_used in cur.fetchall():
+                    result[inst_id] = LastEvaluationState(
+                        retry_policy=retry_policy,
+                        evaluated_at=evaluated_at,
+                        consecutive_zero_extractions=int(zero_count or 0),
+                        zero_cooldown_bypass_used=bool(bypass_used),
+                    )
     except Exception as exc:
         log.warning("No se pudo cargar source_evaluations para cooldown: %s", exc)
     return result
@@ -267,10 +288,10 @@ def _load_last_evaluations() -> dict[int, tuple[str | None, datetime | None]]:
 
 def _partition_by_cooldown(
     sources: list[dict[str, Any]],
-    last_evaluations: dict[int, tuple[str | None, datetime | None]],
+    last_evaluations: dict[int, LastEvaluationState],
     *,
     now: datetime | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[int, str]]:
     """Separa fuentes en (due, in_cooldown).
 
     ``due`` son las que deben evaluarse ahora.
@@ -279,6 +300,7 @@ def _partition_by_cooldown(
     """
     due: list[dict[str, Any]] = []
     in_cooldown: list[dict[str, Any]] = []
+    reasons: dict[int, str] = {}
     _now = now or datetime.now(tz=timezone.utc)
     for source in sources:
         inst_id = source.get("id")
@@ -289,12 +311,17 @@ def _partition_by_cooldown(
         if entry is None:
             due.append(source)
             continue
-        retry_policy, last_evaluated_at = entry
-        if should_evaluate_now(retry_policy=retry_policy, last_evaluated_at=last_evaluated_at, now=_now):
+        if should_evaluate_now(retry_policy=entry.retry_policy, last_evaluated_at=entry.evaluated_at, now=_now):
             due.append(source)
+            reasons[int(inst_id)] = "due_policy"
         else:
-            in_cooldown.append(source)
-    return due, in_cooldown
+            if entry.consecutive_zero_extractions >= 3 and not entry.zero_cooldown_bypass_used:
+                due.append(source)
+                reasons[int(inst_id)] = "cooldown_bypass_zero_streak"
+            else:
+                in_cooldown.append(source)
+                reasons[int(inst_id)] = "cooldown_active"
+    return due, in_cooldown, reasons
 
 
 async def _evaluate_sources(
@@ -604,12 +631,13 @@ async def main(argv: list[str] | None = None) -> int:
         log.info("--ids activo: filtrando a %d instituciones: %s", len(catalog_sources), sorted(target_ids))
 
     # ── Filtrado por cooldown de retry_policy ──────────────────────────────
+    cooldown_reason_by_inst: dict[int, str] = {}
     if args.force_evaluate:
         log.info("--force-evaluate activo: se evaluarán las %d fuentes sin respetar cooldown.", len(catalog_sources))
         sources_to_evaluate = catalog_sources
     else:
         last_evaluations = _load_last_evaluations()
-        sources_to_evaluate, in_cooldown = _partition_by_cooldown(catalog_sources, last_evaluations)
+        sources_to_evaluate, in_cooldown, cooldown_reason_by_inst = _partition_by_cooldown(catalog_sources, last_evaluations)
         if in_cooldown:
             log.info(
                 "Retry-policy cooldown: %d fuentes en cooldown (se saltan), %d fuentes a evaluar ahora.",
@@ -620,9 +648,16 @@ async def main(argv: list[str] | None = None) -> int:
             cooldown_by_policy: dict[str, int] = {}
             for src in in_cooldown:
                 inst_id = src.get("id")
-                policy = (last_evaluations.get(int(inst_id), (None, None))[0] or "unknown") if inst_id else "unknown"
+                policy = (
+                    last_evaluations.get(int(inst_id)).retry_policy
+                    if inst_id and last_evaluations.get(int(inst_id))
+                    else None
+                ) or "unknown"
                 cooldown_by_policy[policy] = cooldown_by_policy.get(policy, 0) + 1
             log.info("Distribución cooldown por retry_policy: %s", cooldown_by_policy)
+        bypass_count = sum(1 for reason in cooldown_reason_by_inst.values() if reason == "cooldown_bypass_zero_streak")
+        if bypass_count:
+            log.info("Bypass incremental de cooldown aplicado a %d instituciones con racha de cero extracciones.", bypass_count)
         else:
             log.info("Todas las %d fuentes están listas para evaluación.", len(sources_to_evaluate))
 
