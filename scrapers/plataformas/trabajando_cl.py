@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -14,6 +14,7 @@ from scrapers.base import (
     normalize_tipo_contrato,
     parse_date,
     parse_renta,
+    setup_logging,
 )
 
 from .generic_site import GenericSiteScraper
@@ -31,6 +32,8 @@ ATS_TRABAJANDO_KEYWORDS = (
 )
 
 _MAX_PAGINAS = 10  # máximo de páginas a iterar por empresa
+
+log = setup_logging("scraper.trabajando_cl")
 
 
 class TrabajandoCLScraper(GenericSiteScraper):
@@ -50,7 +53,7 @@ class TrabajandoCLScraper(GenericSiteScraper):
         super().__init__(
             fuente_id=fuente_id,
             institucion=institucion,
-            candidate_paths=("/trabajo-empleo", "/ofertas", "/empleos"),
+            candidate_paths=("/offers", "/trabajo-empleo", "/ofertas", "/empleos"),
             extra_keywords=ATS_TRABAJANDO_KEYWORDS,
             max_candidate_urls=2,
             detail_fetch_limit=20,
@@ -64,17 +67,40 @@ class TrabajandoCLScraper(GenericSiteScraper):
         if self.http is None:
             raise RuntimeError("TrabajandoCLScraper requiere HttpClient activo.")
 
-        base_url = self._canonical_base()
+        base_url = await self._resolve_base_url()
+        log.info(
+            "[%s] base_url resuelta=%s (url_empleo=%s, sitio_web=%s)",
+            self.institucion_id,
+            base_url or "<vacía>",
+            self.url_empleo or "<vacía>",
+            self.sitio_web or "<vacía>",
+        )
         if not base_url:
+            log.warning("[%s] sin base_url ATS; no se puede descubrir ofertas", self.institucion_id)
             return []
 
         offers: list[OfertaRaw] = []
         seen_ids: set[str] = set()
+        consecutive_empty_pages = 0
 
         for pagina in range(1, _MAX_PAGINAS + 1):
             url = f"{base_url}?pagina={pagina}" if pagina > 1 else base_url
-            html = await self.http.get(url)
+            result = await self.http.fetch(url)
+            html = result.body
+            body_len = len(html) if isinstance(html, str) else 0
+            has_nuxt = bool(html and ("__NUXT" in html or "ShallowReactive" in html or "cantidadPaginas" in html))
+            log.info(
+                "[%s] GET pagina=%s url=%s status=%s len_html=%s has_nuxt=%s final_url=%s",
+                self.institucion_id,
+                pagina,
+                url,
+                result.status,
+                body_len,
+                has_nuxt,
+                result.final_url,
+            )
             if not isinstance(html, str) or not html.strip():
+                log.warning("[%s] página vacía/None en pagina=%s; se corta paginación", self.institucion_id, pagina)
                 break
 
             page_offers, total_paginas = self._parse_nuxt_state(html, base_url)
@@ -85,10 +111,93 @@ class TrabajandoCLScraper(GenericSiteScraper):
                     offers.append(oferta)
                     nuevas += 1
 
-            if nuevas == 0 or pagina >= total_paginas:
+            log.info(
+                "[%s] pagina=%s total_paginas=%s ofertas_detectadas=%s nuevas=%s acumuladas=%s",
+                self.institucion_id,
+                pagina,
+                total_paginas,
+                len(page_offers),
+                nuevas,
+                len(offers),
+            )
+
+            if nuevas == 0:
+                consecutive_empty_pages += 1
+            else:
+                consecutive_empty_pages = 0
+
+            if pagina >= total_paginas:
+                break
+            # Evita cortar demasiado pronto cuando la primera página viene con
+            # layout raro o sin SSR parseable.
+            if consecutive_empty_pages >= 2:
+                log.warning(
+                    "[%s] 2 páginas consecutivas sin nuevas ofertas; se corta paginación",
+                    self.institucion_id,
+                )
                 break
 
+        log.info("[%s] fin descubrir_ofertas: total_ofertas=%s", self.institucion_id, len(offers))
         return offers
+
+    async def _resolve_base_url(self) -> str:
+        """
+        Resuelve la URL base ATS para scraping.
+
+        Prioridad:
+        1) url_empleo/sitio_web ya en trabajando.cl
+        2) descubrir enlace trabajando.cl desde página institucional
+        """
+        direct = self._canonical_base()
+        if direct:
+            validated = await self._find_working_listing_url(direct)
+            if validated:
+                return validated
+        discovered = await self._discover_base_from_institutional_site()
+        if discovered:
+            validated = await self._find_working_listing_url(discovered)
+            if validated:
+                return validated
+        return ""
+
+    async def _find_working_listing_url(self, base_url: str) -> str:
+        """
+        Dada una URL ATS, prueba rutas conocidas de listado y retorna la primera
+        que responda con contenido útil.
+        """
+        if self.http is None:
+            return base_url.rstrip("/")
+
+        parsed = urlparse(base_url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        path = parsed.path.rstrip("/")
+        candidates: list[str] = []
+        if path:
+            candidates.append(f"{origin}{path}")
+        candidates.extend(
+            [
+                f"{origin}/offers",
+                f"{origin}/trabajo-empleo",
+                f"{origin}/ofertas",
+                f"{origin}/empleos",
+            ]
+        )
+
+        for candidate in dict.fromkeys(candidates):
+            result = await self.http.fetch(candidate)
+            html = result.body or ""
+            has_signal = any(token in html for token in ("__NUXT", "ShallowReactive", "offers/detail", "cantidadPaginas"))
+            log.info(
+                "[%s] probe listing candidate=%s status=%s len_html=%s signal=%s",
+                self.institucion_id,
+                candidate,
+                result.status,
+                len(html),
+                has_signal,
+            )
+            if result.status and result.status < 400 and html.strip() and has_signal:
+                return candidate.rstrip("/")
+        return base_url.rstrip("/")
 
     # ── Parseo del estado SSR de Nuxt ─────────────────────────────────────────
 
@@ -101,10 +210,31 @@ class TrabajandoCLScraper(GenericSiteScraper):
         """
         scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, re.DOTALL)
         nuxt_state = ""
+        matched_by = "none"
         for s in scripts:
-            if "ShallowReactive" in s:
+            if (
+                "ShallowReactive" in s
+                or "__NUXT" in s
+                or "cantidadPaginas" in s
+                or "oferta" in s.lower()
+            ):
                 nuxt_state = s
+                matched_by = "script"
                 break
+
+        if not nuxt_state:
+            # Segundo intento: buscar en todo el HTML cuando el estado viene
+            # serializado fuera del primer script relevante.
+            if "cantidadPaginas" in html or re.search(r"(\d{6,8}),\"([^\"]{6,180})\"", html):
+                nuxt_state = html
+                matched_by = "full_html"
+            else:
+                # Fallback: parseo HTML genérico
+                log.info(
+                    "[%s] sin estado Nuxt parseable; fallback HTML",
+                    self.institucion_id,
+                )
+                return self._parse_html_fallback(html, base_url), 1
 
         if not nuxt_state:
             # Fallback: parseo HTML genérico
@@ -117,9 +247,10 @@ class TrabajandoCLScraper(GenericSiteScraper):
         # Extraer pares (id_oferta, nombre_cargo) del estado serializado.
         # El estado de Nuxt serializa como: ID_OFERTA,"NombreCargo",...
         # Los IDs de oferta son números de 7-8 dígitos; los títulos son strings ≥10 chars.
-        pairs = re.findall(r"(\d{6,8}),\"([^\"]{6,180})\"", nuxt_state)
+        raw_pairs = re.findall(r"(\d{6,8}),\"([^\"]{6,180})\"", nuxt_state)
         # Filtrar ruido: solo pares cuyo título tiene letras
-        pairs = [(id_v, t) for id_v, t in pairs if re.search(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]", t)]
+        pairs = [(id_v, t) for id_v, t in raw_pairs if re.search(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]", t)]
+        discarded_pairs = len(raw_pairs) - len(pairs)
 
         # Extraer más campos por oferta (descripción, ubicación, fecha publicación)
         # A veces aparecen embebidos en el mismo bloque
@@ -175,6 +306,15 @@ class TrabajandoCLScraper(GenericSiteScraper):
                 )
             )
 
+        log.info(
+            "[%s] parse_nuxt matched_by=%s total_paginas=%s raw_pairs=%s descartadas=%s ofertas=%s",
+            self.institucion_id,
+            matched_by,
+            total_paginas,
+            len(raw_pairs),
+            discarded_pairs,
+            len(ofertas),
+        )
         return ofertas, total_paginas
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -189,11 +329,52 @@ class TrabajandoCLScraper(GenericSiteScraper):
             return url.rstrip("/")
         return ""
 
+    async def _discover_base_from_institutional_site(self) -> str:
+        """Busca enlaces a *.trabajando.cl desde url_empleo/sitio_web institucional."""
+        if self.http is None:
+            return ""
+        for seed in (self.url_empleo, self.sitio_web):
+            if not seed:
+                continue
+            result = await self.http.fetch(seed)
+            html = result.body
+            log.info(
+                "[%s] discover_base seed=%s status=%s len_html=%s",
+                self.institucion_id,
+                seed,
+                result.status,
+                len(html) if isinstance(html, str) else 0,
+            )
+            if not isinstance(html, str) or not html.strip():
+                continue
+            discovered = self._extract_trabajando_url_from_html(html, seed)
+            if discovered:
+                log.info("[%s] discover_base encontró ATS=%s", self.institucion_id, discovered)
+                return discovered
+            log.info("[%s] discover_base sin links trabajando en seed=%s", self.institucion_id, seed)
+        return ""
+
+    def _extract_trabajando_url_from_html(self, html: str, base_url: str) -> str:
+        """Extrae y normaliza el primer enlace a trabajando.cl encontrado."""
+        soup = BeautifulSoup(html, "html.parser")
+        for anchor in soup.select("a[href]"):
+            href = clean_text(anchor.get("href"))
+            if not href:
+                continue
+            full = urljoin(base_url, href)
+            if "trabajando.cl" not in full.lower():
+                continue
+            if "/trabajo-empleo" in full or "/ofertas" in full or "/empleos" in full:
+                return full.rstrip("/")
+            parsed = urlparse(full)
+            return f"{parsed.scheme}://{parsed.netloc}/trabajo-empleo"
+        return ""
+
     def _resolve_offer_url(self, base_url: str, id_oferta: str) -> str:
         """Construye la URL de detalle de una oferta."""
         parsed = urlparse(base_url)
         domain_base = f"{parsed.scheme}://{parsed.netloc}"
-        return f"{domain_base}/oferta/{id_oferta}"
+        return f"{domain_base}/offers/detail/{id_oferta}"
 
     def _region_from_ubicacion(self, ubicacion: str) -> str | None:
         """Extrae nombre de región a partir de texto 'Ciudad, Región'."""
@@ -213,17 +394,22 @@ class TrabajandoCLScraper(GenericSiteScraper):
         """Fallback: parseo HTML genérico si no hay estado Nuxt."""
         soup = BeautifulSoup(html, "html.parser")
         offers: list[OfertaRaw] = []
+        cards_total = 0
+        descartadas_sin_titulo = 0
+        descartadas_no_oferta = 0
         for card in soup.select("article, .job-card, .oferta-card, .card"):
+            cards_total += 1
             title_el = card.select_one("h2, h3, .job-title, .titulo")
             if not title_el:
+                descartadas_sin_titulo += 1
                 continue
             title = clean_text(title_el.get_text(" ", strip=True))
             link = card.select_one("a[href]")
             href = clean_text(link.get("href") if link else "")
-            from urllib.parse import urljoin
             url = urljoin(base_url, href) if href else base_url
             is_offer, _ = self._score_offer_candidate(title, "", url=url)
             if not title or not is_offer:
+                descartadas_no_oferta += 1
                 continue
             offers.append(
                 OfertaRaw(
@@ -247,4 +433,12 @@ class TrabajandoCLScraper(GenericSiteScraper):
                     url_bases=None,
                 )
             )
+        log.info(
+            "[%s] fallback_html cards=%s ofertas=%s descartes_sin_titulo=%s descartes_no_oferta=%s",
+            self.institucion_id,
+            cards_total,
+            len(offers),
+            descartadas_sin_titulo,
+            descartadas_no_oferta,
+        )
         return offers
