@@ -31,6 +31,35 @@ ATS_TRABAJANDO_KEYWORDS = (
 )
 
 _MAX_PAGINAS = 10  # máximo de páginas a iterar por empresa
+_INVALID_CARGO_PATTERNS = (
+    r"^ver\s+detalle$",
+    r"^ver\s+bases$",
+    r"^postular?$",
+    r"^postula(?:r)?$",
+    r"^buscar\s+empleo$",
+    r"^compartir$",
+    r"^guardar$",
+    r"^filtrar$",
+    r"^orden(?:ar)?$",
+)
+_NOISE_PHRASES = {
+    "ingresa",
+    "crea tu cuenta",
+    "publica tu oferta de empleo",
+    "hazte premium",
+    "mujeres stem",
+    "empleo +50",
+    "empleo joven",
+    "blog",
+    "buscar empleo",
+    "ver detalle",
+    "ver bases",
+    "postular",
+    "compartir",
+    "guardar",
+    "filtrar",
+    "orden",
+}
 
 
 class TrabajandoCLScraper(GenericSiteScraper):
@@ -66,8 +95,17 @@ class TrabajandoCLScraper(GenericSiteScraper):
 
         base_url = await self._resolve_base_url()
         if not base_url:
+            self.log.info(
+                "evento=oferta_descartada scraper=trabajando razon=sin_base_url fuente=%s",
+                self.nombre_fuente,
+            )
             return []
 
+        self.log.info(
+            "evento=inicio scraper=trabajando fuente=%s base_url=%s",
+            self.nombre_fuente,
+            base_url,
+        )
         offers: list[OfertaRaw] = []
         seen_ids: set[str] = set()
 
@@ -85,10 +123,190 @@ class TrabajandoCLScraper(GenericSiteScraper):
                     offers.append(oferta)
                     nuevas += 1
 
+            self.log.info(
+                "evento=listado_obtenido scraper=trabajando pagina=%s cantidad_urls=%s total_paginas_hint=%s",
+                pagina,
+                len(page_offers),
+                total_paginas,
+            )
             if nuevas == 0 or pagina >= total_paginas:
                 break
 
-        return offers
+        enriched = await self._enrich_with_detail_pages(offers)
+        self.log.info(
+            "evento=fin scraper=trabajando fuente=%s total=%s validas=%s descartadas=%s",
+            self.nombre_fuente,
+            len(offers),
+            len(enriched),
+            max(0, len(offers) - len(enriched)),
+        )
+        return enriched
+
+    async def _enrich_with_detail_pages(self, offers: list[OfertaRaw]) -> list[OfertaRaw]:
+        if self.http is None:
+            return offers
+        enriched: list[OfertaRaw] = []
+        for idx, offer in enumerate(offers):
+            if idx >= self.detail_fetch_limit:
+                enriched.append(offer)
+                continue
+            html = await self.http.get(offer.url)
+            if not isinstance(html, str) or not html.strip():
+                enriched.append(offer)
+                continue
+            parsed = self._parse_detail_page(html, offer)
+            if parsed is None:
+                self.log.info(
+                    "evento=oferta_descartada scraper=trabajando razon=detalle_invalido url=%s",
+                    offer.url,
+                )
+                continue
+            self.log.info(
+                "evento=detalle_parseado scraper=trabajando url=%s cargo=%s",
+                parsed.url,
+                parsed.cargo[:120],
+            )
+            enriched.append(parsed)
+        return enriched
+
+    def _parse_detail_page(self, html: str, fallback: OfertaRaw) -> OfertaRaw | None:
+        soup = BeautifulSoup(html, "html.parser")
+        cargo = self._clean_trabajando_text(self._extract_detail_title(soup)) or fallback.cargo
+        if not self._is_valid_cargo(cargo):
+            return None
+
+        company = self._extract_company(soup) or fallback.institucion_nombre
+        ubicacion = self._extract_label_value(soup, ("Ubicación", "Lugar", "Comuna", "Ciudad"))
+        region = self._region_from_ubicacion(ubicacion) or fallback.region
+        ciudad = self._ciudad_from_ubicacion(ubicacion) or fallback.ciudad
+        fecha_pub_raw = self._extract_label_value(
+            soup, ("Fecha publicación", "Publicado", "Publicación")
+        )
+        fecha_cierre_raw = self._extract_label_value(
+            soup, ("Fecha cierre", "Cierre", "Postulaciones hasta", "Fecha límite")
+        )
+
+        descripcion = self._extract_detail_description(soup) or fallback.descripcion or ""
+        descripcion = self._clean_trabajando_text(descripcion)
+        if len(descripcion) < 30:
+            return None
+
+        return OfertaRaw(
+            url=fallback.url,
+            cargo=cargo,
+            institucion_nombre=company,
+            descripcion=descripcion,
+            sector=fallback.sector,
+            tipo_cargo=normalize_tipo_contrato(
+                f"{cargo} {self._extract_label_value(soup, ('Tipo contrato', 'Contrato', 'Jornada'))}"
+            ),
+            region=region,
+            ciudad=ciudad,
+            renta_texto=self._extract_label_value(soup, ("Sueldo", "Renta", "Salario")) or fallback.renta_texto,
+            renta_min=fallback.renta_min,
+            renta_max=fallback.renta_max,
+            grado_eus=fallback.grado_eus,
+            fecha_publicacion=parse_date(fecha_pub_raw) or fallback.fecha_publicacion,
+            fecha_cierre=parse_date(fecha_cierre_raw) or fallback.fecha_cierre,
+            area_profesional=fallback.area_profesional,
+            url_bases=fallback.url_bases,
+        )
+
+    def _extract_detail_title(self, soup: BeautifulSoup) -> str:
+        h1 = soup.select_one("h1")
+        if h1:
+            return h1.get_text(" ", strip=True)
+        og_title = soup.select_one("meta[property='og:title']")
+        if og_title and og_title.get("content"):
+            return str(og_title.get("content"))
+        title = soup.select_one("title")
+        if title:
+            return title.get_text(" ", strip=True)
+        return ""
+
+    def _extract_company(self, soup: BeautifulSoup) -> str:
+        selectors = (
+            "[class*='company']",
+            "[class*='empresa']",
+            "[data-testid*='company']",
+            "[data-testid*='empresa']",
+        )
+        for sel in selectors:
+            node = soup.select_one(sel)
+            if node:
+                text = self._clean_trabajando_text(node.get_text(" ", strip=True))
+                if text and self._is_valid_cargo(text):
+                    return text
+        return self._extract_label_value(soup, ("Empresa", "Institución", "Institucion")) or ""
+
+    def _extract_label_value(self, soup: BeautifulSoup, labels: tuple[str, ...]) -> str:
+        for label in labels:
+            pattern = re.compile(rf"^{re.escape(label)}\s*:?\s*$", re.IGNORECASE)
+            for node in soup.find_all(string=pattern):
+                parent = node.parent
+                if not parent:
+                    continue
+                sibling = parent.find_next_sibling()
+                if sibling:
+                    val = self._clean_trabajando_text(sibling.get_text(" ", strip=True))
+                    if val:
+                        return val
+                text = self._clean_trabajando_text(parent.get_text(" ", strip=True))
+                text = re.sub(rf"^{re.escape(label)}\s*:?\s*", "", text, flags=re.IGNORECASE)
+                if text:
+                    return text
+        return ""
+
+    def _extract_detail_description(self, soup: BeautifulSoup) -> str:
+        selectors = (
+            "main [class*='description']",
+            "main [class*='detalle']",
+            "main [class*='content']",
+            "#job-description",
+            ".job-description",
+            "article",
+        )
+        for sel in selectors:
+            node = soup.select_one(sel)
+            if not node:
+                continue
+            text = node.get_text("\n", strip=True)
+            cleaned = self._clean_trabajando_text(text)
+            if len(cleaned) >= 60:
+                return cleaned
+        return ""
+
+    def _clean_trabajando_text(self, text: str | None) -> str:
+        raw = (text or "").replace("\xa0", " ")
+        if not raw:
+            return ""
+        lines = []
+        seen: set[str] = set()
+        for line in re.split(r"\n+|\r+", raw):
+            item = clean_text(line)
+            if not item:
+                continue
+            low = item.lower()
+            if low in _NOISE_PHRASES:
+                continue
+            if re.fullmatch(r"[\W_]+", item):
+                continue
+            if len(item) > 200 and not re.search(r"[.!?:;]", item):
+                continue
+            if low in seen:
+                continue
+            seen.add(low)
+            lines.append(item)
+        return "\n".join(lines).strip()
+
+    def _is_valid_cargo(self, title: str) -> bool:
+        candidate = clean_text(title)
+        if len(candidate) < 4:
+            return False
+        normalized = candidate.lower()
+        if any(re.fullmatch(pattern, normalized) for pattern in _INVALID_CARGO_PATTERNS):
+            return False
+        return bool(re.search(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]", candidate))
 
     async def _resolve_base_url(self) -> str:
         """
@@ -147,7 +365,7 @@ class TrabajandoCLScraper(GenericSiteScraper):
         # Los IDs de oferta son números de 7-8 dígitos; los títulos son strings ≥10 chars.
         pairs = re.findall(r"(\d{6,8}),\"([^\"]{6,180})\"", nuxt_state)
         # Filtrar ruido: solo pares cuyo título tiene letras
-        pairs = [(id_v, t) for id_v, t in pairs if re.search(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]", t)]
+        pairs = [(id_v, t) for id_v, t in pairs if self._is_valid_cargo(t)]
 
         # Extraer más campos por oferta (descripción, ubicación, fecha publicación)
         # A veces aparecen embebidos en el mismo bloque
@@ -183,7 +401,7 @@ class TrabajandoCLScraper(GenericSiteScraper):
             ofertas.append(
                 OfertaRaw(
                     url=url_oferta,
-                    cargo=clean_text(nombre_cargo),
+                    cargo=self._clean_trabajando_text(nombre_cargo),
                     institucion_nombre=str(
                         self.institucion.get("nombre") or self.nombre_fuente
                     ),
