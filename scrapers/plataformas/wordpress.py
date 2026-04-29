@@ -195,7 +195,10 @@ class WordPressScraper(BaseScraper):
                     payload = self.request_json(url)
                 except Exception as exc:
                     if pagina == 1:
-                        self.logger.info(
+                        # warning (no info) para que journalctl lo capture
+                        # y un operador pueda ver la fuente cayendo por WAF /
+                        # auth wall en lugar de aparecer como found=0 silente.
+                        self.logger.warning(
                             "evento=wordpress_rest_skip scraper=%s url=%s error=%s",
                             self.nombre,
                             url,
@@ -262,7 +265,7 @@ class WordPressScraper(BaseScraper):
         try:
             payload = self.request_json(url)
         except Exception as exc:
-            self.logger.info(
+            self.logger.warning(
                 "evento=wordpress_feed_skip scraper=%s url=%s error=%s",
                 self.nombre,
                 url,
@@ -301,7 +304,7 @@ class WordPressScraper(BaseScraper):
             try:
                 html = self.request_text(url)
             except Exception as exc:
-                self.logger.info(
+                self.logger.warning(
                     "evento=wordpress_html_skip scraper=%s url=%s error=%s",
                     self.nombre,
                     url,

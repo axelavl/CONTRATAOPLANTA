@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
@@ -70,7 +70,7 @@ class BukScraper(GenericSiteScraper):
         seen_urls: set[str] = set()
 
         for pagina in range(1, _MAX_PAGINAS_BUK + 1):
-            url = f"{base_url}?page={pagina}" if pagina > 1 else base_url
+            url = self._with_page_query(base_url, pagina) if pagina > 1 else base_url
             html = await self.http.get(url)
             if not isinstance(html, str) or not html.strip():
                 break
@@ -117,9 +117,13 @@ class BukScraper(GenericSiteScraper):
             if not title:
                 continue
 
-            # Link al detalle
+            # Link al detalle — sin link no hay URL canónica para deduplicar,
+            # así que descartamos la tarjeta (alternativa: terminaba duplicando
+            # base_url para todas las tarjetas sin link).
             link_el = card.select_one("a[href]")
-            href = link_el["href"] if link_el else ""
+            if not link_el or not link_el.get("href"):
+                continue
+            href = link_el["href"]
             url_oferta = href if href.startswith("http") else urljoin(base_url, href)
             if not url_oferta:
                 continue
@@ -160,6 +164,18 @@ class BukScraper(GenericSiteScraper):
         return ofertas
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _with_page_query(url: str, page: int) -> str:
+        """Compone ``?page=N`` respetando query strings preexistentes.
+
+        Antes: ``f"{base_url}?page={page}"`` rompía cuando la URL ya tenía query
+        (ej. ``https://x.buk.cl/jobs?ref=home`` → ``...?ref=home?page=2``).
+        """
+        parsed = urlparse(url)
+        params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        params["page"] = str(page)
+        return urlunparse(parsed._replace(query=urlencode(params)))
 
     def _canonical_base(self) -> str:
         """URL base para el portal de empleo Buk de la institución."""

@@ -299,7 +299,7 @@ class GenericSiteScraper(BaseScraper):
             if candidate.content_text and len(candidate.content_text) >= 400 and candidate.pdf_links:
                 enriched.append(candidate)
                 continue
-            if candidate.url.rstrip("/") in {self.url_empleo.rstrip("/"), self.sitio_web.rstrip("/")}:
+            if candidate.url.rstrip("/") in {(self.url_empleo or "").rstrip("/"), (self.sitio_web or "").rstrip("/")}:
                 enriched.append(candidate)
                 continue
             html = await self.http.get(candidate.url)
