@@ -26,12 +26,14 @@ import abc
 import asyncio
 import difflib
 import hashlib
+import json
 import logging
 import logging.handlers
 import os
 import random
 import re
 import sys
+import tempfile
 import time
 import unicodedata
 from contextlib import contextmanager
@@ -1160,6 +1162,22 @@ class HttpClient:
 #  BASE SCRAPER (abstract)
 # ═══════════════════════════════════════════════════════════════════
 
+class IntakeRejected(Exception):
+    """Señaliza que la capa de intake transversal descartó la oferta.
+
+    Antes era referenciada en ``LegacyBaseScraper.normalize_offer`` y
+    ``save_to_db`` pero nunca estuvo definida — eso convertía cada descarte
+    de intake en un ``NameError`` capturado por el ``except Exception`` de
+    abajo, que lo contabilizaba como ``errores`` y lo loguava como
+    ``db_offer_error``. Ahora el flujo: ``normalize_offer`` la lanza,
+    ``save_to_db`` la captura y suma ``descartadas`` correctamente.
+    """
+
+    def __init__(self, motivo: str | None = None) -> None:
+        super().__init__(motivo or "intake_rejected")
+        self.motivo = motivo or "intake_rejected"
+
+
 @dataclass
 class OfertaRaw:
     """Payload mínimo que un scraper debe producir por cada oferta encontrada."""
@@ -1639,19 +1657,6 @@ def build_file_handler(base_path: Path) -> logging.Handler:
                 return logging.FileHandler(temp_path, encoding="utf-8")
             except PermissionError:
                 return logging.NullHandler()
-
-
-def extract_host_like_pattern(url: str | None) -> str | None:
-    """Extrae el host de una URL para matching por dominio."""
-    if not url:
-        return None
-    try:
-        return urlparse(url).netloc.lower().lstrip("www.")
-    except Exception:
-        return None
-
-
-import tempfile  # noqa: E402  (ya importado arriba en algunos entornos)
 
 
 class LegacyBaseScraper(abc.ABC):
